@@ -1,0 +1,61 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/secrets/
+**/credentials*.json
+**/token*.json
+**/*.pem
+**/*.p12
+**/*.pfx
+**/*.key
+**/*.session
+**/*.session-journal
+
+# Runtime state
+**/data/
+**/logs/
+**/backups/
+**/*.db
+**/*.db-journal
+**/*.sqlite
+**/*.sqlite3
+.local/
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/coverage.xml
+**/htmlcov/
+**/build/
+**/dist/
+
+# JavaScript
+**/node_modules/
+**/.npm/
+**/.pnpm-store/
+
+# Editors and operating systems
+.DS_Store
+**/.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary and backup files
+*.bak
+*.bak-*
+*.before-*
+*~
+
