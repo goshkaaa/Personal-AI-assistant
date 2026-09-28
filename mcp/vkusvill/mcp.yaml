@@ -1,0 +1,5 @@
+name: vkusvill
+type: remote
+transport: streamable-http
+url: https://mcp.vkusvill.ru/mcp
+trust: untrusted
