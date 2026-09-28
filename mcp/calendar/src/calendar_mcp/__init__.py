@@ -1,1 +1,1 @@
-"""Apple Calendar MCP."""
+"""Provider-neutral, multi-account Calendar MCP."""

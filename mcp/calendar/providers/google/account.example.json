@@ -1,0 +1,9 @@
+{
+  "id": "personal-google",
+  "provider": "google",
+  "label": "Personal Google Calendar",
+  "credentials_file": "~/.config/personal-ai-assistant/secrets/google-calendar-credentials.json",
+  "token_file": "~/.config/personal-ai-assistant/secrets/google-calendar-personal-token.json",
+  "allow_write": false,
+  "write_calendar_id": ""
+}

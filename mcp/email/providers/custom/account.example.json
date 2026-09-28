@@ -1,0 +1,22 @@
+{
+  "id": "custom-work",
+  "provider": "imap_smtp",
+  "label": "Custom work mailbox",
+  "address": "me@example.com",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/custom-mail-password",
+  "imap": {
+    "host": "imap.example.com",
+    "port": 993,
+    "security": "ssl",
+    "inbox": "INBOX",
+    "drafts": "Drafts",
+    "sent": "Sent"
+  },
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": 465,
+    "security": "ssl"
+  },
+  "allow_send": false
+}

@@ -1,0 +1,9 @@
+{
+  "id": "icloud-personal",
+  "provider": "icloud",
+  "label": "iCloud Mail",
+  "address": "me@example.com",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/icloud-mail-password",
+  "allow_send": false
+}

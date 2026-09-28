@@ -1,0 +1,9 @@
+{
+  "id": "mailru-personal",
+  "provider": "mailru",
+  "label": "Mail.ru",
+  "address": "me@example.com",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/mailru-password",
+  "allow_send": false
+}

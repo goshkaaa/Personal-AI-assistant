@@ -8,7 +8,7 @@
 
 Проект построен поверх [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 Здесь находятся воспроизводимый deployment, Telegram-юзербот и небольшие MCP
-для Gmail, Apple Calendar, Home Assistant, Obsidian и ВкусВилла.
+для почты, календарей, Home Assistant, Obsidian и ВкусВилла.
 
 Это первая версия всего проекта. Структура и интерфейсы ещё могут меняться,
 но чистая установка, безопасное хранение секретов и автоматические проверки
@@ -17,9 +17,11 @@
 ## Что умеет
 
 - Telegram: искать чаты, читать, отправлять и продолжать диалоги;
-- Gmail: искать письма и треды, создавать обычные и reply-черновики,
-  отправлять новые письма и ответы после явного подтверждения;
-- Apple Calendar: читать события, искать свободное время и создавать события
+- Почта: работать с несколькими Gmail и IMAP/SMTP-ящиками, искать письма,
+  создавать черновики и отправлять с явным подтверждением;
+- Календари: работать с несколькими Google, iCloud, Yandex, Mail.ru и
+  CalDAV-аккаунтами,
+  читать события, искать свободное время и создавать события
   через двухэтапное подтверждение;
 - Home Assistant: читать состояния и вызывать только разрешённые services;
 - Obsidian: создавать, читать, искать и дополнять Markdown-заметки;
@@ -118,41 +120,49 @@ mcp/telegram/.venv/bin/telegram-listener-login
 Telegram попросит номер, код и пароль 2FA, если он включён. Session-файлы
 будут созданы вне репозитория. Подробнее: [mcp/telegram/README.md](mcp/telegram/README.md).
 
-### Gmail
+### Почта
 
-1. В Google Cloud включите Gmail API и создайте OAuth client типа
-   **Desktop app**.
-2. Скачанный JSON сохраните как
-   `~/.config/personal-ai-assistant/secrets/gmail-credentials.json`.
-3. Запустите OAuth:
+Почтовый MCP поддерживает несколько ящиков: Gmail через OAuth, Yandex, Mail.ru,
+iCloud и другие сервисы через защищённые IMAP/SMTP-соединения. Готовые
+примеры лежат в `mcp/email/providers/`.
+
+1. Скопируйте `mcp/email/accounts.example.json` в
+   `~/.config/personal-ai-assistant/secrets/email-accounts.json`.
+2. Добавьте ящики и укажите `default_account`. Пароли и OAuth-токены должны
+   лежать в отдельных файлах вне checkout.
+3. Для каждого Gmail-ящика запустите OAuth с его `account_id`:
 
 ```bash
-mcp/gmail/.venv/bin/gmail-auth
+mcp/email/.venv/bin/email-auth --account personal
 ```
 
 На удалённом сервере заранее откройте SSH port forwarding для callback-порта
 `8766`, затем откройте выданную ссылку в локальном браузере.
 
-Чтение и черновики доступны сразу после OAuth. Реальная отправка остаётся
-выключенной, пока в `mcp/gmail/.env` не установлено
-`MCP_ALLOW_EMAIL_SEND=true`; каждый send/reply дополнительно требует явного
-подтверждения вызова. Подробнее: [mcp/gmail/README.md](mcp/gmail/README.md).
+Чтение и черновики доступны после настройки. Реальная отправка отдельно включается
+для каждого ящика полем `allow_send` и всё равно требует явного подтверждения
+конкретного вызова. Подробнее: [mcp/email/README.md](mcp/email/README.md).
 
-### Apple Calendar
+### Календари
 
-1. Создайте отдельный app-specific password на
-   [account.apple.com](https://account.apple.com/); основной пароль Apple не
-   используется.
-2. Укажите Apple Account email и timezone в `mcp/calendar/.env`.
-3. Сохраните пароль безопасным интерактивным помощником:
+Календарный MCP поддерживает несколько аккаунтов: Google Calendar через OAuth,
+iCloud, Yandex, Mail.ru и другие сервисы через CalDAV. Готовые примеры лежат в
+`mcp/calendar/providers/`.
+
+1. Скопируйте `mcp/calendar/accounts.example.json` в
+   `~/.config/personal-ai-assistant/secrets/calendar-accounts.json`.
+2. Добавьте аккаунты, укажите `default_account` и оставьте `allow_write: false`.
+3. Для Google запустите OAuth, а для CalDAV сохраните пароль приложения:
 
 ```bash
-mcp/calendar/.venv/bin/python mcp/calendar/scripts/configure_icloud.py
+mcp/calendar/.venv/bin/calendar-auth --account personal-google
+mcp/calendar/.venv/bin/calendar-store-password --account personal-icloud
 ```
 
-Сначала оставьте `MCP_ALLOW_CALENDAR_WRITE=false`. После проверки чтения
-получите ID нужного календаря, запишите его в `CALENDAR_WRITE_CALENDAR_ID` и
-только затем включайте запись. Подробнее: [mcp/calendar/README.md](mcp/calendar/README.md).
+На удалённом сервере для Google callback заранее откройте SSH port forwarding порта
+`8767`. Запись включается отдельно для каждого аккаунта только после выбора
+непрозрачного `write_calendar_id`. Подробнее:
+[mcp/calendar/README.md](mcp/calendar/README.md).
 
 ### Home Assistant
 
@@ -240,7 +250,7 @@ make check
 ```
 
 Проверка запускает линтеры, форматирование, unit- и интеграционные тесты, а
-также поиск типичных секретов в текущих tracked-файлах и истории Git.
+также поиск типичных секретов в tracked- и новых файлах, а также в истории Git.
 
 Обновление сервера:
 
@@ -263,7 +273,7 @@ uv sync --locked --no-editable
 .venv/bin/obsidian-mcp
 ```
 
-Аналогично запускаются `calendar-mcp`, `gmail-mcp`, `homeassistant-mcp` и
+Аналогично запускаются `calendar-mcp`, `email-mcp`, `homeassistant-mcp` и
 `telegram-mcp`.
 
 ## Структура

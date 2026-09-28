@@ -26,12 +26,12 @@ def env_file(service: str) -> Path:
 
 def render() -> str:
     calendar = yaml_string(entrypoint("calendar", "calendar-mcp"))
-    gmail = yaml_string(entrypoint("gmail", "gmail-mcp"))
+    email = yaml_string(entrypoint("email", "email-mcp"))
     homeassistant = yaml_string(entrypoint("homeassistant", "homeassistant-mcp"))
     obsidian = yaml_string(entrypoint("obsidian", "obsidian-mcp"))
     telegram = yaml_string(entrypoint("telegram", "telegram-mcp"))
     calendar_env = yaml_string(env_file("calendar"))
-    gmail_env = yaml_string(env_file("gmail"))
+    email_env = yaml_string(env_file("email"))
     homeassistant_env = yaml_string(env_file("homeassistant"))
     obsidian_env = yaml_string(env_file("obsidian"))
     telegram_env = yaml_string(env_file("telegram"))
@@ -46,10 +46,10 @@ mcp_servers:
     enabled: true
     trust: full
     connect_timeout: 30
-  gmail:
-    command: {gmail}
+  email:
+    command: {email}
     env:
-      MCP_ENV_FILE: {gmail_env}
+      MCP_ENV_FILE: {email_env}
     enabled: true
     trust: full
     connect_timeout: 30

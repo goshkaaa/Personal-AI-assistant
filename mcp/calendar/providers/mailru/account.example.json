@@ -1,0 +1,9 @@
+{
+  "id": "personal-mailru",
+  "provider": "mailru",
+  "label": "Personal Mail Calendar",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/mailru-calendar-password",
+  "allow_write": false,
+  "write_calendar_id": ""
+}

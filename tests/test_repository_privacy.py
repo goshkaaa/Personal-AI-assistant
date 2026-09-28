@@ -17,9 +17,11 @@ PROFILE_UNIT = re.compile(r"hermes-gateway-(?!<profile>)[a-z0-9_-]+\.service", r
 SAFE_EMAIL_DOMAINS = {"example.com", "users.noreply.github.com"}
 
 
-def tracked_text_files() -> list[tuple[Path, str]]:
+def repository_text_files() -> list[tuple[Path, str]]:
     output = subprocess.check_output(
-        ["git", "ls-files", "-z"], cwd=ROOT, text=False
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT,
+        text=False,
     )
     files: list[tuple[Path, str]] = []
     for raw_path in output.split(b"\0"):
@@ -39,13 +41,13 @@ def tracked_text_files() -> list[tuple[Path, str]]:
 
 class RepositoryPrivacyTests(unittest.TestCase):
     def test_no_personal_email_domains(self) -> None:
-        for path, text in tracked_text_files():
+        for path, text in repository_text_files():
             for domain in EMAIL.findall(text):
                 with self.subTest(file=str(path), domain=domain):
                     self.assertIn(domain.lower(), SAFE_EMAIL_DOMAINS)
 
     def test_no_public_ipv4_addresses(self) -> None:
-        for path, text in tracked_text_files():
+        for path, text in repository_text_files():
             for candidate in IPV4.findall(text):
                 address = ipaddress.ip_address(candidate)
                 with self.subTest(file=str(path), value=candidate):
@@ -53,7 +55,7 @@ class RepositoryPrivacyTests(unittest.TestCase):
 
     def test_no_absolute_user_homes_or_private_hosts(self) -> None:
         patterns = (ABSOLUTE_HOME, TAILNET_HOST, PROFILE_UNIT)
-        for path, text in tracked_text_files():
+        for path, text in repository_text_files():
             for pattern in patterns:
                 with self.subTest(file=str(path), pattern=pattern.pattern):
                     self.assertIsNone(pattern.search(text))

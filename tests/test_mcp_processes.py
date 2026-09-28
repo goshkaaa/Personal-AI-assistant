@@ -13,16 +13,18 @@ EXPECTED_TOOLS = {
     "calendar": {
         "calendar_commit_event",
         "calendar_find_free_slots",
+        "calendar_list_accounts",
         "calendar_list_calendars",
         "calendar_list_events",
         "calendar_prepare_event",
         "calendar_status",
     },
-    "gmail": {
+    "email": {
         "email_create_draft",
         "email_create_reply_draft",
         "email_get_message",
         "email_get_thread",
+        "email_list_accounts",
         "email_list_unread",
         "email_reply",
         "email_search",
@@ -120,8 +122,8 @@ class MCPProcessIntegrationTests(unittest.TestCase):
     def test_calendar_stdio_handshake(self) -> None:
         self._assert_server("calendar")
 
-    def test_gmail_stdio_handshake(self) -> None:
-        self._assert_server("gmail")
+    def test_email_stdio_handshake(self) -> None:
+        self._assert_server("email")
 
     def test_homeassistant_stdio_handshake(self) -> None:
         self._assert_server("homeassistant")

@@ -1,0 +1,11 @@
+{
+  "id": "custom-work",
+  "provider": "caldav",
+  "label": "Custom work calendar",
+  "url": "https://caldav.example.com/",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/custom-calendar-password",
+  "timezone": "Europe/Moscow",
+  "allow_write": false,
+  "write_calendar_id": ""
+}

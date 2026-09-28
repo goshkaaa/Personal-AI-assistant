@@ -6,7 +6,7 @@ import os
 import secrets
 import sqlite3
 import time
-from contextlib import suppress
+from contextlib import closing, suppress
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +15,7 @@ from pathlib import Path
 class Proposal:
     proposal_id: str
     uid: str
+    account_id: str
     calendar_id: str
     payload: dict[str, object]
     created_at: int
@@ -39,12 +40,13 @@ class ProposalStore:
         return connection
 
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS proposals (
                     proposal_id TEXT PRIMARY KEY,
                     uid TEXT NOT NULL UNIQUE,
+                    account_id TEXT NOT NULL,
                     calendar_id TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
                     created_at INTEGER NOT NULL,
@@ -56,11 +58,24 @@ class ProposalStore:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     created_at INTEGER NOT NULL,
                     action TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
                     calendar_id TEXT NOT NULL,
                     uid_hash TEXT NOT NULL,
                     result TEXT NOT NULL
                 );
                 """
+            )
+            self._ensure_column(
+                connection,
+                table="proposals",
+                column="account_id",
+                definition="TEXT NOT NULL DEFAULT 'default'",
+            )
+            self._ensure_column(
+                connection,
+                table="write_audit",
+                column="account_id",
+                definition="TEXT NOT NULL DEFAULT 'default'",
             )
         with suppress(OSError):
             self.path.chmod(0o600)
@@ -68,6 +83,7 @@ class ProposalStore:
     def create(
         self,
         *,
+        account_id: str,
         calendar_id: str,
         uid: str,
         payload: dict[str, object],
@@ -77,14 +93,22 @@ class ProposalStore:
         self.purge(now=now)
         proposal_id = secrets.token_urlsafe(18)
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
                 INSERT INTO proposals (
-                    proposal_id, uid, calendar_id, payload_json, created_at, expires_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    proposal_id, uid, account_id, calendar_id, payload_json, created_at, expires_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (proposal_id, uid, calendar_id, encoded, now, now + ttl_seconds),
+                (
+                    proposal_id,
+                    uid,
+                    account_id,
+                    calendar_id,
+                    encoded,
+                    now,
+                    now + ttl_seconds,
+                ),
             )
         proposal = self.get(proposal_id)
         if proposal is None:  # pragma: no cover - protects against storage corruption
@@ -92,7 +116,7 @@ class ProposalStore:
         return proposal
 
     def get(self, proposal_id: str) -> Proposal | None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection:
             row = connection.execute(
                 "SELECT * FROM proposals WHERE proposal_id = ?", (proposal_id,)
             ).fetchone()
@@ -101,6 +125,7 @@ class ProposalStore:
         return Proposal(
             proposal_id=row["proposal_id"],
             uid=row["uid"],
+            account_id=row["account_id"],
             calendar_id=row["calendar_id"],
             payload=json.loads(row["payload_json"]),
             created_at=row["created_at"],
@@ -113,6 +138,7 @@ class ProposalStore:
         self,
         proposal_id: str,
         *,
+        account_id: str,
         calendar_id: str,
         uid: str,
         receipt: dict[str, object],
@@ -123,7 +149,7 @@ class ProposalStore:
             receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
         )
         uid_hash = hashlib.sha256(uid.encode("utf-8")).hexdigest()[:20]
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
                 UPDATE proposals
@@ -135,30 +161,49 @@ class ProposalStore:
             connection.execute(
                 """
                 INSERT INTO write_audit (
-                    created_at, action, calendar_id, uid_hash, result
-                ) VALUES (?, 'create', ?, ?, ?)
+                    created_at, action, account_id, calendar_id, uid_hash, result
+                ) VALUES (?, 'create', ?, ?, ?, ?)
                 """,
-                (now, calendar_id, uid_hash, result),
+                (now, account_id, calendar_id, uid_hash, result),
             )
 
-    def record_failure(self, *, calendar_id: str, uid: str, result: str) -> None:
+    def record_failure(
+        self,
+        *,
+        account_id: str,
+        calendar_id: str,
+        uid: str,
+        result: str,
+    ) -> None:
         now = int(time.time())
         uid_hash = hashlib.sha256(uid.encode("utf-8")).hexdigest()[:20]
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 """
                 INSERT INTO write_audit (
-                    created_at, action, calendar_id, uid_hash, result
-                ) VALUES (?, 'create', ?, ?, ?)
+                    created_at, action, account_id, calendar_id, uid_hash, result
+                ) VALUES (?, 'create', ?, ?, ?, ?)
                 """,
-                (now, calendar_id, uid_hash, result[:80]),
+                (now, account_id, calendar_id, uid_hash, result[:80]),
             )
+
+    @staticmethod
+    def _ensure_column(
+        connection: sqlite3.Connection,
+        *,
+        table: str,
+        column: str,
+        definition: str,
+    ) -> None:
+        columns = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+        if column not in columns:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def purge(self, *, now: int | None = None) -> None:
         current = int(time.time()) if now is None else now
         receipt_cutoff = current - 24 * 60 * 60
         audit_cutoff = current - 30 * 24 * 60 * 60
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute(
                 "DELETE FROM proposals WHERE committed_at IS NULL AND expires_at < ?",
                 (current,),

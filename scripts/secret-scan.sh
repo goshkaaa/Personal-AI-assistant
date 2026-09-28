@@ -6,9 +6,18 @@ PATTERN='([0-9]{8,12}:[A-Za-z0-9_-]{30,}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z
 
 cd "$ROOT_DIR"
 
-matches="$(git grep -I -l -E "$PATTERN" -- . ':!hermes/hermes-agent' || true)"
+tracked_matches="$(git grep -I -l -E "$PATTERN" -- . ':!hermes/hermes-agent' || true)"
+untracked_files=()
+while IFS= read -r -d '' path; do
+  untracked_files+=("$path")
+done < <(git ls-files --others --exclude-standard -z)
+untracked_matches=""
+if (( ${#untracked_files[@]} > 0 )); then
+  untracked_matches="$(grep -I -l -E "$PATTERN" -- "${untracked_files[@]}" || true)"
+fi
+matches="${tracked_matches}${tracked_matches:+$'\n'}${untracked_matches}"
 if [[ -n "$matches" ]]; then
-  printf 'Potential secret signatures in tracked files:\n%s\n' "$matches" >&2
+  printf 'Potential secret signatures in repository files:\n%s\n' "$matches" >&2
   exit 1
 fi
 
@@ -40,14 +49,15 @@ if [[ -n "$non_private_metadata_emails" ]]; then
   exit 1
 fi
 
-tracked_sensitive="$(
-  git ls-files \
+sensitive_files="$(
+  git ls-files --cached --others --exclude-standard \
     | grep -E '(^|/)(\.env$|[^/]*(credentials|token|session|private[-_]?key)[^/]*$)|\.(pem|p12|pfx|key|sqlite|sqlite3|db)$' \
     | grep -Ev '(^|/)\.env\.example$' \
     || true
 )"
-if [[ -n "$tracked_sensitive" ]]; then
-  printf 'Sensitive-looking files are tracked:\n%s\n' "$tracked_sensitive" >&2
+if [[ -n "$sensitive_files" ]]; then
+  printf 'Sensitive-looking files are present in the repository worktree:\n%s\n' \
+    "$sensitive_files" >&2
   exit 1
 fi
 

@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-for service in calendar gmail homeassistant obsidian telegram; do
+for service in calendar email homeassistant obsidian telegram; do
   service_dir="$ROOT_DIR/mcp/$service"
   ruff="$service_dir/.venv/bin/ruff"
   python="$service_dir/.venv/bin/python"
@@ -24,15 +24,15 @@ for service in calendar gmail homeassistant obsidian telegram; do
 done
 
 printf '==> Running integration tests\n'
-"$ROOT_DIR/mcp/gmail/.venv/bin/python" -m unittest discover \
+"$ROOT_DIR/mcp/email/.venv/bin/python" -m unittest discover \
   -s "$ROOT_DIR/tests" -v
 
 printf '==> Checking deployment scripts\n'
-"$ROOT_DIR/mcp/gmail/.venv/bin/ruff" check "$ROOT_DIR/deployment"
-"$ROOT_DIR/mcp/gmail/.venv/bin/ruff" format --check "$ROOT_DIR/deployment"
+"$ROOT_DIR/mcp/email/.venv/bin/ruff" check "$ROOT_DIR/deployment"
+"$ROOT_DIR/mcp/email/.venv/bin/ruff" format --check "$ROOT_DIR/deployment"
 bash -n "$ROOT_DIR"/deployment/*.sh "$ROOT_DIR"/scripts/*.sh
 
-printf '==> Scanning tracked files for secrets\n'
+printf '==> Scanning repository files for secrets\n'
 "$ROOT_DIR/scripts/secret-scan.sh"
 
 printf '==> All checks passed\n'

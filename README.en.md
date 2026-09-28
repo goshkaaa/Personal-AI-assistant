@@ -7,7 +7,7 @@ use. I am publishing the first version in case the complete setup, its
 architecture, or individual MCP servers are useful to someone else.
 
 The project is built on [Hermes Agent](https://github.com/NousResearch/hermes-agent)
-and adds small, independent integrations for Telegram, Gmail, Apple Calendar,
+and adds small, independent integrations for Telegram, email, calendars,
 Home Assistant, Obsidian, and VkusVill.
 
 ## Integrations
@@ -15,8 +15,8 @@ Home Assistant, Obsidian, and VkusVill.
 | Service | Capabilities |
 | --- | --- |
 | Telegram | Search and read chats, send and reply, run background conversation tasks |
-| Gmail | Search mail and threads, create drafts, send new mail and replies with confirmation |
-| Apple Calendar | Read events, find free time, prepare and confirm new events |
+| Email | Multiple Gmail, Yandex, Mail.ru, iCloud, and custom IMAP/SMTP accounts |
+| Calendars | Multiple Google, iCloud, Yandex, Mail.ru, and custom CalDAV accounts |
 | Home Assistant | Read states and call explicitly allowed services |
 | Obsidian | Create, read, search, and update Markdown notes |
 | VkusVill | Search products through the official remote MCP |
@@ -64,7 +64,7 @@ the Hermes gateway, and systemd services are available in the
 - Long-lived secrets default to `~/.config/personal-ai-assistant/secrets`.
 - Sessions and databases default to `~/.local/share/personal-ai-assistant`.
 - Email, calendar, and Home Assistant writes are disabled by default.
-- The repository check scans tracked files and Git history for common secrets.
+- The repository check scans tracked and new worktree files plus Git history for common secrets.
 
 Hermes is pinned as a Git submodule. Keep personal Hermes configuration and
 skills in `~/.hermes`, never inside the submodule directory.

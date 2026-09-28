@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-SERVICES=(calendar gmail homeassistant obsidian telegram)
+SERVICES=(calendar email homeassistant obsidian telegram)
 PRIVATE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/personal-ai-assistant/secrets"
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/personal-ai-assistant"
 
@@ -51,6 +51,6 @@ install -d -m 700 \
 
 printf '\nReady. Next:\n'
 printf '  1. Fill mcp/*/.env and add credentials.\n'
-printf '  2. Authorize Telegram and Gmail (see README.md).\n'
+printf '  2. Authorize Telegram and configure email and calendar accounts (see README.md).\n'
 printf '  3. Run make check.\n'
 printf '  4. Add .local/hermes-mcp.yaml to your Hermes config.\n'

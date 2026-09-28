@@ -1,0 +1,9 @@
+{
+  "id": "yandex-personal",
+  "provider": "yandex",
+  "label": "Yandex Mail",
+  "address": "me@example.com",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/yandex-mail-password",
+  "allow_send": false
+}

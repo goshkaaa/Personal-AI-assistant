@@ -1,0 +1,9 @@
+{
+  "id": "personal-icloud",
+  "provider": "icloud",
+  "label": "Personal iCloud Calendar",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/icloud-calendar-password",
+  "allow_write": false,
+  "write_calendar_id": ""
+}

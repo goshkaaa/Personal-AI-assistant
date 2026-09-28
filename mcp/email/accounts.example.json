@@ -1,0 +1,23 @@
+{
+  "default_account": "personal",
+  "accounts": [
+    {
+      "id": "personal",
+      "provider": "gmail",
+      "label": "Personal Gmail",
+      "address": "me@example.com",
+      "credentials_file": "~/.config/personal-ai-assistant/secrets/gmail-credentials.json",
+      "token_file": "~/.config/personal-ai-assistant/secrets/gmail-personal-token.json",
+      "allow_send": false
+    },
+    {
+      "id": "work",
+      "provider": "yandex",
+      "label": "Work Yandex",
+      "address": "me@example.com",
+      "username": "me@example.com",
+      "password_file": "~/.config/personal-ai-assistant/secrets/work-email-password",
+      "allow_send": false
+    }
+  ]
+}

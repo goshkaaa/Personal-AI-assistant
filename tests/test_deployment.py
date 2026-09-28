@@ -10,7 +10,7 @@ from deployment.install_user_services import unit
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "deployment" / "generate_config.py"
-LOCAL_SERVICES = ("calendar", "gmail", "homeassistant", "obsidian", "telegram")
+LOCAL_SERVICES = ("calendar", "email", "homeassistant", "obsidian", "telegram")
 
 
 class DeploymentIntegrationTests(unittest.TestCase):

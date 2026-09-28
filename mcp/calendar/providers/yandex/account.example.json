@@ -1,0 +1,9 @@
+{
+  "id": "work-yandex",
+  "provider": "yandex",
+  "label": "Work Yandex Calendar",
+  "username": "me@example.com",
+  "password_file": "~/.config/personal-ai-assistant/secrets/yandex-calendar-password",
+  "allow_write": false,
+  "write_calendar_id": ""
+}

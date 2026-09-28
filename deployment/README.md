@@ -19,7 +19,7 @@ make setup
 Fill only the modules you plan to use:
 
 - `mcp/telegram/.env`
-- `mcp/gmail/.env`
+- `mcp/email/.env`
 - `mcp/calendar/.env`
 - `mcp/homeassistant/.env`
 - `mcp/obsidian/.env`
@@ -29,8 +29,19 @@ authorize the interactive integrations:
 
 ```bash
 mcp/telegram/.venv/bin/telegram-login
-mcp/gmail/.venv/bin/gmail-auth
+mcp/email/.venv/bin/email-auth --account personal
+mcp/calendar/.venv/bin/calendar-auth --account personal-google
 ```
+
+For email, also copy `mcp/email/accounts.example.json` to the path configured by
+`EMAIL_ACCOUNTS_FILE`. Run `email-auth` once for each Gmail account and
+`email-store-password --account <id>` once for each IMAP/SMTP account.
+
+For calendars, copy `mcp/calendar/accounts.example.json` to the path configured
+by `CALENDAR_ACCOUNTS_FILE`. Run `calendar-auth` once for each Google account and
+`calendar-store-password --account <id>` once for each CalDAV account. Keep
+`allow_write` disabled until you have listed calendars and selected an opaque
+`write_calendar_id` for that account.
 
 ## 3. Connect MCP modules
 

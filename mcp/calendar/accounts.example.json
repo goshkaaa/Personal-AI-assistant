@@ -1,0 +1,47 @@
+{
+  "default_account": "personal-google",
+  "timezone": "Europe/Moscow",
+  "proposal_ttl_seconds": 600,
+  "state_db": "~/.local/share/personal-ai-assistant/calendar.sqlite3",
+  "timeout_seconds": 25,
+  "max_range_days": 90,
+  "max_results": 200,
+  "accounts": [
+    {
+      "id": "personal-google",
+      "provider": "google",
+      "label": "Personal Google Calendar",
+      "credentials_file": "~/.config/personal-ai-assistant/secrets/google-calendar-credentials.json",
+      "token_file": "~/.config/personal-ai-assistant/secrets/google-calendar-personal-token.json",
+      "allow_write": false,
+      "write_calendar_id": ""
+    },
+    {
+      "id": "personal-icloud",
+      "provider": "icloud",
+      "label": "Personal iCloud Calendar",
+      "username": "me@example.com",
+      "password_file": "~/.config/personal-ai-assistant/secrets/icloud-calendar-password",
+      "allow_write": false,
+      "write_calendar_id": ""
+    },
+    {
+      "id": "work-yandex",
+      "provider": "yandex",
+      "label": "Work Yandex Calendar",
+      "username": "me@example.com",
+      "password_file": "~/.config/personal-ai-assistant/secrets/yandex-calendar-password",
+      "allow_write": false,
+      "write_calendar_id": ""
+    },
+    {
+      "id": "personal-mailru",
+      "provider": "mailru",
+      "label": "Personal Mail Calendar",
+      "username": "me@example.com",
+      "password_file": "~/.config/personal-ai-assistant/secrets/mailru-calendar-password",
+      "allow_write": false,
+      "write_calendar_id": ""
+    }
+  ]
+}
