@@ -304,8 +304,10 @@ async def calendar_prepare_event(
             )
         conflicts = []
         for record in records:
+            if not record.busy:
+                continue
             busy = record.busy_interval(account.timezone)
-            if record.busy and busy.start < interval.end and busy.end > interval.start:
+            if busy.start < interval.end and busy.end > interval.start:
                 conflicts.append(
                     {
                         "start": busy.start.astimezone(account.timezone).isoformat(),
@@ -399,19 +401,9 @@ async def calendar_commit_event(
                 "message": "Proposal target does not match the account's writable calendar",
             }
 
-        message = _confirmation_message(proposal)
-        try:
-            decision = await ctx.elicit(message, schema=EmptyConfirmation)
-        except Exception:
-            return {
-                "status": "confirmation_unavailable",
-                "message": "Interactive confirmation was unavailable; nothing was created",
-            }
-        if decision.action != "accept":
-            return {
-                "status": "declined",
-                "message": "User did not approve the event; nothing was created",
-            }
+        confirmation_failure = await _confirmation_failure(ctx, proposal)
+        if confirmation_failure is not None:
+            return confirmation_failure
 
         try:
             uid, recovered = await asyncio.to_thread(
@@ -448,6 +440,25 @@ async def calendar_commit_event(
         return {"status": "created", "idempotent_replay": recovered, "receipt": receipt}
     except Exception as exc:
         return _error(exc)
+
+
+async def _confirmation_failure(
+    ctx: Context,
+    proposal: Proposal,
+) -> dict[str, object] | None:
+    try:
+        decision = await ctx.elicit(_confirmation_message(proposal), schema=EmptyConfirmation)
+    except Exception:
+        return {
+            "status": "confirmation_unavailable",
+            "message": "Interactive confirmation was unavailable; nothing was created",
+        }
+    if decision.action != "accept":
+        return {
+            "status": "declined",
+            "message": "User did not approve the event; nothing was created",
+        }
+    return None
 
 
 def _confirmation_message(proposal: Proposal) -> str:

@@ -57,9 +57,12 @@ class GoogleCalendarService:
         limit: int,
     ) -> tuple[list[EventRecord], bool]:
         calendars = self._select_calendars(calendar_id, allow_all=True)
+        time_min = start.astimezone(UTC).isoformat().replace("+00:00", "Z")
+        time_max = end.astimezone(UTC).isoformat().replace("+00:00", "Z")
         records: list[EventRecord] = []
         truncated = False
         for calendar in calendars:
+            info = self._calendar_info(calendar)
             page_token: str | None = None
             while True:
                 remaining = limit + 1 - len(records)
@@ -68,8 +71,8 @@ class GoogleCalendarService:
                     break
                 request = self.service.events().list(
                     calendarId=calendar["id"],
-                    timeMin=start.astimezone(UTC).isoformat().replace("+00:00", "Z"),
-                    timeMax=end.astimezone(UTC).isoformat().replace("+00:00", "Z"),
+                    timeMin=time_min,
+                    timeMax=time_max,
                     q=query or None,
                     singleEvents=True,
                     orderBy="startTime",
@@ -78,7 +81,6 @@ class GoogleCalendarService:
                     pageToken=page_token,
                 )
                 response = self._execute(request, "list events")
-                info = self._calendar_info(calendar)
                 for item in response.get("items", []):
                     if item.get("status") == "cancelled":
                         continue

@@ -79,9 +79,11 @@ class NotificationDispatcher:
             if kind == "PROGRESS" and self._progress_is_throttled(task_id):
                 continue
             texts = []
+            seen_texts = set()
             for row in group:
                 text = (row["text"] or "").strip()
-                if text and text not in texts:
+                if text and text not in seen_texts:
+                    seen_texts.add(text)
                     texts.append(text)
 
             notification_ids = [row["id"] for row in group]

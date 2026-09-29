@@ -69,9 +69,6 @@ class EmailService:
             for account in self.settings.accounts
         ]
 
-    def sending_enabled(self, account_id: str | None) -> bool:
-        return self.settings.account(account_id).allow_send
-
     def search(
         self,
         query: str = "",

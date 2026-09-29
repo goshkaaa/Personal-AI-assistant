@@ -1,6 +1,7 @@
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src"
@@ -29,6 +30,13 @@ class ObsidianVaultTests(unittest.TestCase):
         self.assertTrue(repeated["exists"])
         self.assertIn("first", content)
         self.assertNotIn("second", content)
+
+    def test_concurrent_create_has_one_winner(self):
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            results = list(executor.map(lambda value: self.vault.create("Race", value), range(8)))
+
+        self.assertEqual(sum(result["created"] for result in results), 1)
+        self.assertEqual((self.vault.path / "Race.md").stat().st_mode & 0o777, 0o600)
 
     def test_title_is_confined_to_vault(self):
         self.assertEqual(self.vault.note_path("../../outside").parent, self.vault.path)

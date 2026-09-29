@@ -1,9 +1,9 @@
 """Bounded, typed access to standards-based calendars over CalDAV."""
 
 import hashlib
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
-from typing import Iterator
 
 from caldav import error as caldav_error
 from caldav import get_davclient

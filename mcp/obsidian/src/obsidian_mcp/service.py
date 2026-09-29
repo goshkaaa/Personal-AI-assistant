@@ -32,15 +32,16 @@ class ObsidianVault:
         content = str(content).strip()
         reject_secrets(content)
         path = self.note_path(title)
-
-        if path.exists():
-            return {"created": False, "exists": True, "title": title, "path": str(path)}
-
         self.path.mkdir(parents=True, exist_ok=True, mode=0o700)
         body = f"# {title}\n\n> Создано Hermes: {self._now()}\n"
         if content:
             body += f"\n{content}\n"
-        path.write_text(body, encoding="utf-8")
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return {"created": False, "exists": True, "title": title, "path": str(path)}
+        with os.fdopen(descriptor, "w", encoding="utf-8") as note:
+            note.write(body)
         return {"created": True, "exists": False, "title": title, "path": str(path)}
 
     def update(self, title: str, content: str, section: str = "") -> dict:
@@ -81,13 +82,15 @@ class ObsidianVault:
         }
 
     def list(self, query: str = "") -> list[dict]:
-        query = str(query).strip().lower()
+        query = str(query).strip().casefold()
         results = []
         for path in sorted(self.path.glob("*.md")):
-            if query:
-                content = path.read_text(encoding="utf-8", errors="replace").lower()
-                if query not in path.stem.lower() and query not in content:
-                    continue
+            if (
+                query
+                and query not in path.stem.casefold()
+                and query not in path.read_text(encoding="utf-8", errors="replace").casefold()
+            ):
+                continue
             metadata = path.stat()
             results.append(
                 {

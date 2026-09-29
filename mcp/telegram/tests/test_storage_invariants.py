@@ -50,6 +50,8 @@ class StorageInvariantTests(unittest.TestCase):
                     "INSERT INTO task_contacts(task_id, chat_id) VALUES (?, ?)",
                     (999_999, 42),
                 )
+        with self.assertRaises(sqlite3.ProgrammingError):
+            db.execute("SELECT 1")
 
     def test_listener_replay_does_not_duplicate_an_event(self) -> None:
         task_id = self._queue_event()

@@ -1,13 +1,12 @@
 """Small object-oriented client for the Gmail API."""
 
-import os
 from typing import Any
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from ..config import EmailSettings, GmailAccountSettings, private_path
+from ..config import GmailAccountSettings, private_path, write_private
 from .gmail_codec import GmailMessageCodec
 
 SCOPES = [
@@ -20,13 +19,6 @@ class GmailClient:
     def __init__(self, settings: GmailAccountSettings, service: Any | None = None) -> None:
         self.settings = settings
         self._service = service
-
-    @classmethod
-    def from_env(cls, account_id: str | None = None) -> "GmailClient":
-        account = EmailSettings.from_env().account(account_id)
-        if not isinstance(account, GmailAccountSettings):
-            raise ValueError(f"Email account {account.account_id!r} is not a Gmail account")
-        return cls(account)
 
     @property
     def service(self) -> Any:
@@ -113,12 +105,7 @@ class GmailClient:
         credentials = Credentials.from_authorized_user_file(str(token_path), SCOPES)
         if credentials.expired and credentials.refresh_token:
             credentials.refresh(Request())
-            temporary = token_path.with_suffix(f"{token_path.suffix}.tmp")
-            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(descriptor, "w", encoding="utf-8") as token_file:
-                token_file.write(credentials.to_json())
-            temporary.replace(token_path)
-            token_path.chmod(0o600)
+            write_private(token_path, credentials.to_json())
         return build("gmail", "v1", credentials=credentials, cache_discovery=False)
 
     def _metadata(self, message_id: str) -> dict[str, Any]:

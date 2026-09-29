@@ -86,39 +86,6 @@ class CalendarService:
         account, client = self.resolve(account_id)
         return account, client.list_calendars()
 
-    def search_events(
-        self,
-        start: datetime,
-        end: datetime,
-        *,
-        account_id: str | None,
-        calendar_id: str,
-        query: str = "",
-        include_notes: bool = False,
-        limit: int,
-    ) -> tuple[CalendarAccountSettings, list[EventRecord], bool]:
-        account, client = self.resolve(account_id)
-        records, truncated = client.search_events(
-            start,
-            end,
-            calendar_id=calendar_id,
-            query=query,
-            include_notes=include_notes,
-            limit=limit,
-        )
-        return account, records, truncated
-
-    @staticmethod
-    def account_result(
-        result: dict[str, object],
-        account: CalendarAccountSettings,
-    ) -> dict[str, object]:
-        return {
-            **result,
-            "account_id": account.account_id,
-            "provider": account.provider,
-        }
-
     def _build_client(self, account: CalendarAccountSettings) -> CalendarClient:
         if isinstance(account, CalDavAccountSettings):
             return CalDavCalendarService(self.settings, account)

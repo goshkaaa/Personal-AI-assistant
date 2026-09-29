@@ -1,9 +1,9 @@
 """Pure date/time validation and free-slot calculations."""
 
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
-from typing import Iterable
 from zoneinfo import ZoneInfo
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -148,23 +148,20 @@ def find_free_intervals(
     weekdays_only: bool,
     limit: int,
 ) -> list[dict[str, object]]:
-    if not 1 <= duration_minutes <= 24 * 60:
-        raise InputError("duration_minutes must be between 1 and 1440")
-    if not 1 <= limit <= 100:
-        raise InputError("limit must be between 1 and 100")
-
-    day_start_clock = parse_clock(working_hours_start, field="working_hours_start")
-    day_end_clock = parse_clock(working_hours_end, field="working_hours_end")
-    if day_end_clock <= day_start_clock:
-        raise InputError("working_hours_end must be later than working_hours_start")
+    minimum, day_start_clock, day_end_clock = _free_search_constraints(
+        duration_minutes,
+        working_hours_start,
+        working_hours_end,
+        limit,
+    )
 
     merged = merge_busy(busy)
-    minimum = timedelta(minutes=duration_minutes)
     start_local = range_start.astimezone(timezone)
     end_local = range_end.astimezone(timezone)
     current_date = start_local.date()
     final_date = end_local.date()
     results: list[dict[str, object]] = []
+    busy_index = 0
 
     while current_date <= final_date and len(results) < limit:
         if not weekdays_only or current_date.weekday() < 5:
@@ -174,22 +171,52 @@ def find_free_intervals(
             window_end = min(work_end, end_local).astimezone(UTC)
 
             if window_end - window_start >= minimum:
-                cursor = window_start
-                for interval in merged:
-                    if interval.end <= cursor:
-                        continue
-                    if interval.start >= window_end:
-                        break
-                    clipped_start = max(interval.start, window_start)
-                    if clipped_start - cursor >= minimum:
-                        results.append(_free_slot(cursor, clipped_start, timezone))
+                while busy_index < len(merged) and merged[busy_index].end <= window_start:
+                    busy_index += 1
+                for free in _free_gaps(window_start, window_end, merged, busy_index):
+                    if free.end - free.start >= minimum:
+                        results.append(_free_slot(free.start, free.end, timezone))
                         if len(results) >= limit:
                             break
-                    cursor = max(cursor, min(interval.end, window_end))
-                if len(results) < limit and window_end - cursor >= minimum:
-                    results.append(_free_slot(cursor, window_end, timezone))
         current_date += timedelta(days=1)
     return results
+
+
+def _free_search_constraints(
+    duration_minutes: int,
+    working_hours_start: str,
+    working_hours_end: str,
+    limit: int,
+) -> tuple[timedelta, time, time]:
+    if not 1 <= duration_minutes <= 24 * 60:
+        raise InputError("duration_minutes must be between 1 and 1440")
+    if not 1 <= limit <= 100:
+        raise InputError("limit must be between 1 and 100")
+
+    day_start = parse_clock(working_hours_start, field="working_hours_start")
+    day_end = parse_clock(working_hours_end, field="working_hours_end")
+    if day_end <= day_start:
+        raise InputError("working_hours_end must be later than working_hours_start")
+    return timedelta(minutes=duration_minutes), day_start, day_end
+
+
+def _free_gaps(
+    window_start: datetime,
+    window_end: datetime,
+    busy: list[BusyInterval],
+    start_index: int,
+) -> Iterator[BusyInterval]:
+    cursor = window_start
+    for index in range(start_index, len(busy)):
+        interval = busy[index]
+        if interval.start >= window_end:
+            break
+        clipped_start = max(interval.start, window_start)
+        if clipped_start > cursor:
+            yield BusyInterval(cursor, clipped_start)
+        cursor = max(cursor, min(interval.end, window_end))
+    if cursor < window_end:
+        yield BusyInterval(cursor, window_end)
 
 
 def _free_slot(start: datetime, end: datetime, timezone: ZoneInfo) -> dict[str, object]:

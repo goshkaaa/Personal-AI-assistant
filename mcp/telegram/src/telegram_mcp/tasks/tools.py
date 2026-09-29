@@ -56,12 +56,6 @@ def register_task_tools(mcp: MCPServer) -> None:
                     f"Could not resolve Telegram chat: {type(exc).__name__}: {exc}"
                 ) from exc
 
-        task = task_repository.find(task_id)
-        if not task:
-            raise ValueError(f"Task {task_id} does not exist")
-        if task["status"] != "ACTIVE":
-            raise ValueError(f"Task {task_id} is not active")
-
         task_repository.attach(task_id=int(task_id), chat_id=int(peer))
         conversations.mark_managed(int(peer), None, None, f"autonomous_task_{task_id}")
         return {

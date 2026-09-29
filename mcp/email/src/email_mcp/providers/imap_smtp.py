@@ -3,6 +3,7 @@
 import base64
 import imaplib
 import os
+import re
 import smtplib
 import ssl
 import time
@@ -119,6 +120,7 @@ class ImapSmtpClient:
     """Provider-neutral mailbox operations using encrypted IMAP and SMTP."""
 
     timeout_seconds = 30
+    summary_headers = "(UID BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM REPLY-TO TO CC SUBJECT DATE)])"
 
     def __init__(self, settings: ImapSmtpAccountSettings) -> None:
         self.settings = settings
@@ -191,11 +193,14 @@ class ImapSmtpClient:
             self._require_ok(status, "IMAP search")
             raw_uids = data[0] if data else b""
             uids = raw_uids.split()[-limit:]
-            messages: list[dict[str, Any]] = []
+            headers_by_uid = self._fetch_headers(connection, uids)
+            messages = []
             for raw_uid in reversed(uids):
                 uid = raw_uid.decode("ascii")
                 reference = self._encode_reference(self.settings.inbox_mailbox, uid)
-                raw = self._fetch(connection, uid)
+                raw = headers_by_uid.get(uid)
+                if raw is None:
+                    raise RuntimeError(f"IMAP server returned no headers for message {uid!r}")
                 messages.append(
                     InternetMessageCodec.serialize(
                         self._parse(raw),
@@ -317,9 +322,10 @@ class ImapSmtpClient:
                 self.settings.imap_port,
                 timeout=self.timeout_seconds,
             )
-            connection.starttls(ssl_context=context)
 
         try:
+            if self.settings.imap_security == "starttls":
+                connection.starttls(ssl_context=context)
             connection.login(
                 self.settings.username,
                 self._read_password(self.settings.password_file),
@@ -337,6 +343,28 @@ class ImapSmtpClient:
             if isinstance(item, tuple) and len(item) > 1 and isinstance(item[1], bytes):
                 return item[1]
         raise RuntimeError(f"IMAP server returned no content for message {uid!r}")
+
+    @classmethod
+    def _fetch_headers(cls, connection: Any, uids: list[bytes]) -> dict[str, bytes]:
+        if not uids:
+            return {}
+        message_set = b",".join(uids).decode("ascii")
+        status, data = connection.uid("fetch", message_set, cls.summary_headers)
+        cls._require_ok(status, "fetch IMAP message headers")
+
+        headers: dict[str, bytes] = {}
+        for item in data or []:
+            if not (
+                isinstance(item, tuple)
+                and len(item) > 1
+                and isinstance(item[0], bytes)
+                and isinstance(item[1], bytes)
+            ):
+                continue
+            match = re.search(rb"\bUID\s+(\d+)\b", item[0])
+            if match:
+                headers[match.group(1).decode("ascii")] = item[1]
+        return headers
 
     @staticmethod
     def _parse(raw: bytes) -> EmailMessage:

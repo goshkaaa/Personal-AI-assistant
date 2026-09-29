@@ -4,9 +4,10 @@ import sys
 import tempfile
 import unittest
 from contextlib import closing
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 PROVIDER_EXAMPLES = Path(__file__).resolve().parents[1] / "providers"
@@ -18,6 +19,7 @@ from calendar_mcp.config import (  # noqa: E402
     GoogleAccountSettings,
     Settings,
 )
+from calendar_mcp.logic import BusyInterval, find_free_intervals  # noqa: E402
 from calendar_mcp.models import CalendarInfo  # noqa: E402
 from calendar_mcp.proposals import ProposalStore  # noqa: E402
 from calendar_mcp.providers.google import GoogleCalendarService  # noqa: E402
@@ -148,6 +150,38 @@ class CalendarServerTests(unittest.TestCase):
         self.assertEqual(len(info.calendar_id), 24)
         self.assertEqual(event.start, datetime.fromisoformat("2026-09-28T10:00:00+03:00"))
         self.assertEqual(event.calendar_id, info.calendar_id)
+
+    def test_free_slots_handle_busy_intervals_across_multiple_days(self) -> None:
+        slots = find_free_intervals(
+            datetime(2026, 9, 29, 8, tzinfo=UTC),
+            datetime(2026, 10, 1, 19, tzinfo=UTC),
+            [
+                BusyInterval(
+                    datetime(2026, 9, 29, 10, tzinfo=UTC),
+                    datetime(2026, 9, 29, 11, tzinfo=UTC),
+                ),
+                BusyInterval(
+                    datetime(2026, 9, 30, 17, tzinfo=UTC),
+                    datetime(2026, 10, 1, 10, tzinfo=UTC),
+                ),
+            ],
+            timezone=ZoneInfo("UTC"),
+            duration_minutes=60,
+            working_hours_start="09:00",
+            working_hours_end="18:00",
+            weekdays_only=True,
+            limit=10,
+        )
+
+        self.assertEqual(
+            [(slot["start"], slot["end"]) for slot in slots],
+            [
+                ("2026-09-29T09:00:00+00:00", "2026-09-29T10:00:00+00:00"),
+                ("2026-09-29T11:00:00+00:00", "2026-09-29T18:00:00+00:00"),
+                ("2026-09-30T09:00:00+00:00", "2026-09-30T17:00:00+00:00"),
+                ("2026-10-01T10:00:00+00:00", "2026-10-01T18:00:00+00:00"),
+            ],
+        )
 
     def test_existing_proposal_database_is_migrated_to_account_ids(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

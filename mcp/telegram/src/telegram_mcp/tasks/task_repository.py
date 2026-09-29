@@ -1,5 +1,6 @@
 """Persistence for autonomous tasks, events, and owner notifications."""
 
+import sqlite3
 import time
 
 from .database import Database, database
@@ -37,14 +38,6 @@ class TaskRepository:
             )
         return int(cursor.lastrowid)
 
-    def find(self, task_id: int) -> dict | None:
-        with self.db.connect() as connection:
-            row = connection.execute(
-                "SELECT * FROM tasks WHERE id=?",
-                (int(task_id),),
-            ).fetchone()
-        return dict(row) if row else None
-
     def list_tasks(self, status: str | None = None) -> list[dict]:
         with self.db.connect() as connection:
             if status:
@@ -57,10 +50,8 @@ class TaskRepository:
         return [dict(row) for row in rows]
 
     def status(self, task_id: int) -> dict:
-        task = self.find(task_id)
-        if task is None:
-            raise ValueError(f"Task {task_id} does not exist")
         with self.db.connect() as connection:
+            task = self._require_task(connection, task_id)
             contacts = connection.execute(
                 """
                 SELECT id, chat_id, state, missing_fields, result_summary,
@@ -76,10 +67,8 @@ class TaskRepository:
         return {"task": task, "contacts": [dict(row) for row in contacts]}
 
     def cancel(self, task_id: int) -> None:
-        task = self.find(task_id)
-        if task is None:
-            raise ValueError(f"Task {task_id} does not exist")
         with self.db.connect() as connection:
+            self._require_task(connection, task_id)
             connection.execute(
                 """
                 UPDATE tasks
@@ -98,14 +87,12 @@ class TaskRepository:
             )
 
     def attach(self, *, task_id: int, chat_id: int) -> int:
-        task = self.find(task_id)
-        if task is None:
-            raise ValueError(f"Task {task_id} does not exist")
-        if task["status"] != "ACTIVE":
-            raise ValueError(f"Task {task_id} is not active")
-
         with self.db.connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            task = self._require_task(connection, task_id)
+            if task["status"] != "ACTIVE":
+                raise ValueError(f"Task {task_id} is not active")
+
             conflict = connection.execute(
                 """
                 SELECT tc.task_id
@@ -140,23 +127,6 @@ class TaskRepository:
                 (task_id, chat_id),
             ).fetchone()
         return int(row["id"] if row else cursor.lastrowid)
-
-    def active_contact(self, chat_id: int) -> dict | None:
-        with self.db.connect() as connection:
-            row = connection.execute(
-                """
-                SELECT tc.*, t.title AS task_title, t.goal AS task_goal,
-                       t.required_fields, t.silent_mode, t.max_followups,
-                       t.max_clarifications
-                FROM task_contacts tc
-                JOIN tasks t ON t.id = tc.task_id
-                WHERE tc.chat_id=? AND tc.active=1 AND t.status='ACTIVE'
-                ORDER BY tc.updated_at DESC
-                LIMIT 1
-                """,
-                (chat_id,),
-            ).fetchone()
-        return dict(row) if row else None
 
     def queue_incoming(self, *, chat_id: int, message_id: int, text: str) -> bool:
         with self.db.connect() as connection:
@@ -402,6 +372,21 @@ class TaskRepository:
                 """,
                 (int(task_id),),
             )
+
+    @staticmethod
+    def _find_task(connection: sqlite3.Connection, task_id: int) -> dict | None:
+        row = connection.execute(
+            "SELECT * FROM tasks WHERE id=?",
+            (int(task_id),),
+        ).fetchone()
+        return dict(row) if row else None
+
+    @classmethod
+    def _require_task(cls, connection: sqlite3.Connection, task_id: int) -> dict:
+        task = cls._find_task(connection, task_id)
+        if task is None:
+            raise ValueError(f"Task {task_id} does not exist")
+        return task
 
 
 task_repository = TaskRepository(database)

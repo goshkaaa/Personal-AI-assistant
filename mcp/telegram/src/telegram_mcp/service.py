@@ -1,6 +1,7 @@
 """Telegram operations exposed by the MCP adapter."""
 
 from collections.abc import Callable
+from contextlib import suppress
 from typing import Any
 
 from pyrogram.types import InputPhoneContact
@@ -85,35 +86,35 @@ class TelegramService:
             first_name="MCP",
             last_name="Temporary",
         )
-        resolved_user = None
         try:
             with self.client_factory() as app:
                 users = app.import_contacts([contact])
-                if users:
-                    resolved_user = users[0]
-            if resolved_user is None:
-                return {
-                    "found": False,
-                    "phone": normalized,
-                    "reason": "Telegram did not resolve this number to an accessible user.",
-                }
-            return {
-                "found": True,
-                "phone": normalized,
-                "user": {
-                    "id": resolved_user.id,
-                    "first_name": getattr(resolved_user, "first_name", None),
-                    "last_name": getattr(resolved_user, "last_name", None),
-                    "username": getattr(resolved_user, "username", None),
-                    "is_bot": bool(getattr(resolved_user, "is_bot", False)),
-                },
-                "chat_id": resolved_user.id,
-            }
+                if not users:
+                    return {
+                        "found": False,
+                        "phone": normalized,
+                        "reason": "Telegram did not resolve this number to an accessible user.",
+                    }
+                resolved_user = users[0]
+                try:
+                    return {
+                        "found": True,
+                        "phone": normalized,
+                        "user": {
+                            "id": resolved_user.id,
+                            "first_name": getattr(resolved_user, "first_name", None),
+                            "last_name": getattr(resolved_user, "last_name", None),
+                            "username": getattr(resolved_user, "username", None),
+                            "is_bot": bool(getattr(resolved_user, "is_bot", False)),
+                        },
+                        "chat_id": resolved_user.id,
+                    }
+                finally:
+                    # The contact exists only to resolve the number and must not remain imported.
+                    with suppress(Exception):
+                        app.delete_contacts(resolved_user.id)
         except Exception as exc:
             self._raise("phone resolve", exc)
-        finally:
-            if resolved_user is not None:
-                self._remove_contact(resolved_user.id)
 
     @staticmethod
     def managed_chats() -> list[dict]:
@@ -157,13 +158,6 @@ class TelegramService:
             return result
         except Exception as exc:
             self._raise("reply" if reply_to else "send", exc)
-
-    def _remove_contact(self, user_id: int) -> None:
-        try:
-            with self.client_factory() as app:
-                app.delete_contacts(user_id)
-        except Exception:
-            pass
 
     @staticmethod
     def _raise(operation: str, exc: Exception) -> None:

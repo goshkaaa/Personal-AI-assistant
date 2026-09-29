@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,6 +53,30 @@ def private_path(path: Path) -> Path:
         with suppress(OSError):
             path.chmod(0o600)
     return path
+
+
+def write_private(path: Path, content: str) -> None:
+    """Atomically replace a credential file with private permissions."""
+    private_path(path)
+    temporary_name = ""
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            delete=False,
+        ) as temporary:
+            temporary_name = temporary.name
+            temporary.write(content)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.chmod(temporary_name, 0o600)
+        os.replace(temporary_name, path)
+        path.chmod(0o600)
+    finally:
+        if temporary_name:
+            Path(temporary_name).unlink(missing_ok=True)
 
 
 @dataclass(frozen=True)
@@ -295,7 +320,7 @@ class EmailSettings:
         if value is not None and not isinstance(value, str):
             raise ValueError(f"Email account field {key!r} must be a path string")
         selected = Path(value).expanduser() if value else default
-        if selected is None:  # Kept explicit for static type checkers.
+        if selected is None:
             raise ValueError(f"Email account field {key!r} is required")
         if not selected.is_absolute():
             selected = base_dir / selected

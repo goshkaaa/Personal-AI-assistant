@@ -16,6 +16,7 @@ from email_mcp.config import (  # noqa: E402
     EmailSettings,
     GmailAccountSettings,
     ImapSmtpAccountSettings,
+    write_private,
 )
 from email_mcp.providers.gmail import GmailClient  # noqa: E402
 from email_mcp.providers.imap_smtp import ImapSmtpClient, InternetMessageCodec  # noqa: E402
@@ -24,6 +25,16 @@ from email_mcp.service import EmailService  # noqa: E402
 
 
 class EmailServerTests(unittest.TestCase):
+    def test_private_write_replaces_token_atomically(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            token = Path(temporary) / "secrets" / "token.json"
+            write_private(token, "first")
+            write_private(token, "second")
+
+            self.assertEqual(token.read_text(encoding="utf-8"), "second")
+            self.assertEqual(token.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(list(token.parent.glob(f".{token.name}.*")), [])
+
     def test_public_tool_contract(self) -> None:
         server = create_server()
         self.assertEqual(
@@ -148,6 +159,67 @@ class EmailServerTests(unittest.TestCase):
             ImapSmtpClient._decode_reference(reference),
             ("Archive/2026:Q4", "481"),
         )
+
+    def test_imap_search_fetches_summary_headers_in_one_batch(self) -> None:
+        settings = ImapSmtpAccountSettings(
+            account_id="work",
+            label="Work",
+            address="me@example.com",
+            username="me@example.com",
+            password_file=Path("password"),
+            imap_host="imap.example.com",
+            smtp_host="smtp.example.com",
+        )
+        client = ImapSmtpClient(settings)
+        connection = MagicMock()
+        connection.uid.side_effect = [
+            ("OK", [b"10 20"]),
+            (
+                "OK",
+                [
+                    (b"1 (UID 10 BODY[HEADER.FIELDS] {18}", b"Subject: First\r\n\r\n"),
+                    (b"2 (UID 20 BODY[HEADER.FIELDS] {19}", b"Subject: Second\r\n\r\n"),
+                ],
+            ),
+        ]
+
+        with patch.object(client, "_mailbox") as mailbox:
+            mailbox.return_value.__enter__.return_value = connection
+            result = client.search(max_results=2)
+
+        self.assertEqual([message["subject"] for message in result], ["Second", "First"])
+        self.assertEqual(connection.uid.call_count, 2)
+        fetch_call = connection.uid.call_args_list[1]
+        self.assertEqual(fetch_call.args[1], "10,20")
+        self.assertIn("HEADER.FIELDS", fetch_call.args[2])
+        self.assertNotEqual(fetch_call.args[2], "(BODY.PEEK[])")
+
+    def test_imap_connection_is_closed_when_starttls_fails(self) -> None:
+        settings = ImapSmtpAccountSettings(
+            account_id="work",
+            label="Work",
+            address="me@example.com",
+            username="me@example.com",
+            password_file=Path("password"),
+            imap_host="imap.example.com",
+            smtp_host="smtp.example.com",
+            imap_security="starttls",
+        )
+        client = ImapSmtpClient(settings)
+        connection = MagicMock()
+        connection.starttls.side_effect = OSError("TLS negotiation failed")
+
+        with (
+            patch(
+                "email_mcp.providers.imap_smtp.imaplib.IMAP4",
+                return_value=connection,
+            ),
+            self.assertRaisesRegex(OSError, "TLS negotiation failed"),
+            client._imap_connection(),
+        ):
+            self.fail("connection context unexpectedly opened")
+
+        connection.logout.assert_called_once_with()
 
     def test_checked_in_provider_examples_are_valid(self) -> None:
         expected_hosts = {

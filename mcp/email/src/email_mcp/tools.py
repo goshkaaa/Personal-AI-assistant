@@ -71,16 +71,17 @@ def register_email_tools(mcp: MCPServer) -> None:
     ) -> dict:
         """Send a new message after per-account enablement and explicit confirmation."""
         service = EmailService.from_env()
-        if not service.sending_enabled(account_id):
+        account = service.settings.account(account_id)
+        if not account.allow_send:
             return {
                 "status": "disabled",
-                "account_id": service.settings.account(account_id).account_id,
+                "account_id": account.account_id,
                 "message": "Email sending is disabled in the selected account configuration.",
             }
         if not user_confirmed:
             return {
                 "status": "confirmation_required",
-                "account_id": service.settings.account(account_id).account_id,
+                "account_id": account.account_id,
                 "message": (
                     "Explicit user confirmation is required before sending. Create a draft instead."
                 ),
@@ -96,16 +97,17 @@ def register_email_tools(mcp: MCPServer) -> None:
     ) -> dict:
         """Reply from the selected mailbox after enablement and explicit confirmation."""
         service = EmailService.from_env()
-        if not service.sending_enabled(account_id):
+        account = service.settings.account(account_id)
+        if not account.allow_send:
             return {
                 "status": "disabled",
-                "account_id": service.settings.account(account_id).account_id,
+                "account_id": account.account_id,
                 "message": "Email sending is disabled in the selected account configuration.",
             }
         if not user_confirmed:
             return {
                 "status": "confirmation_required",
-                "account_id": service.settings.account(account_id).account_id,
+                "account_id": account.account_id,
                 "message": "Explicit user confirmation is required before sending the reply.",
             }
         return service.reply(message_id, body, account_id)

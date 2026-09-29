@@ -3,12 +3,15 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR / "src"))
 
 from telegram_mcp import app  # noqa: E402
 from telegram_mcp.client import TelegramSettings  # noqa: E402
+from telegram_mcp.service import TelegramService  # noqa: E402
 from telegram_mcp.tasks.database import database  # noqa: E402
 
 EXPECTED_TOOLS = {
@@ -55,6 +58,26 @@ class ArchitectureTests(unittest.TestCase):
         finally:
             if original_api_id is not None:
                 os.environ["TG_API_ID"] = original_api_id
+
+    def test_phone_resolution_removes_temporary_contact_on_same_client(self) -> None:
+        client_context = MagicMock()
+        client = client_context.__enter__.return_value
+        client.import_contacts.return_value = [
+            SimpleNamespace(
+                id=42,
+                first_name="Ada",
+                last_name="Lovelace",
+                username="ada",
+                is_bot=False,
+            )
+        ]
+        client_factory = MagicMock(return_value=client_context)
+
+        result = TelegramService(client_factory).resolve_phone("+44 1234 567890")
+
+        self.assertTrue(result["found"])
+        client_factory.assert_called_once_with()
+        client.delete_contacts.assert_called_once_with(42)
 
 
 if __name__ == "__main__":

@@ -49,6 +49,7 @@ class HomeAssistantClient:
         states = self.request("GET", "/api/states")
         query = query.strip().lower()
         domain = domain.strip().lower()
+        limit = max(1, min(limit, 100))
         result = []
 
         for item in states:
@@ -60,7 +61,7 @@ class HomeAssistantClient:
             if query and query not in f"{entity_id} {name}".lower():
                 continue
             result.append({"entity_id": entity_id, "name": name, "state": item.get("state")})
-            if len(result) >= max(1, min(limit, 100)):
+            if len(result) >= limit:
                 break
         return result
 

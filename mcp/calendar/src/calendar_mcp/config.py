@@ -143,16 +143,17 @@ class GoogleAccountSettings:
         return timezone(self.timezone_name)
 
     def credential_status(self) -> dict[str, object]:
+        credentials_exist = self.credentials_file.is_file()
+        token_exists = self.token_file.is_file()
         return {
-            "oauth_client_configured": self.credentials_file.is_file(),
+            "oauth_client_configured": credentials_exist,
             "oauth_client_private": (
-                self.credentials_file.is_file()
+                credentials_exist
                 and stat.S_IMODE(self.credentials_file.stat().st_mode) & 0o077 == 0
             ),
-            "oauth_token_configured": self.token_file.is_file(),
+            "oauth_token_configured": token_exists,
             "oauth_token_private": (
-                self.token_file.is_file()
-                and stat.S_IMODE(self.token_file.stat().st_mode) & 0o077 == 0
+                token_exists and stat.S_IMODE(self.token_file.stat().st_mode) & 0o077 == 0
             ),
         }
 
