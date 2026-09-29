@@ -94,7 +94,7 @@ hermes/        pinned Hermes Agent submodule
 
 ## Status
 
-The current project release is `v0.2.1`. See [CHANGELOG.md](CHANGELOG.md) for
+The current project release is `v0.3.0`. See [CHANGELOG.md](CHANGELOG.md) for
 release notes and upgrade guidance. Interfaces and structure may still change.
 
 ## License

@@ -26,7 +26,7 @@ jobs:
 
       - name: Install MCP modules
         run: |
-          for service in calendar gmail homeassistant obsidian telegram; do
+          for service in calendar email homeassistant obsidian telegram; do
             uv sync --project "mcp/$service" --locked --extra dev --no-editable
           done
 
