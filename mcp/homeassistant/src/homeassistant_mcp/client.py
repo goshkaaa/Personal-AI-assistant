@@ -1,10 +1,16 @@
-"""Home Assistant REST client and write policy."""
+"""Home Assistant API client and write policy."""
+
+from __future__ import annotations
 
 import json
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime
 from typing import Any
+
+from websockets.exceptions import WebSocketException
+from websockets.sync.client import connect
 
 from .config import HomeAssistantSettings
 
@@ -40,13 +46,120 @@ class HomeAssistantClient:
     def get_state(self, entity_id: str) -> dict[str, Any]:
         return self.request("GET", "/api/states/" + urllib.parse.quote(entity_id, safe="._"))
 
+    def list_states(self) -> list[dict[str, Any]]:
+        result = self.request("GET", "/api/states")
+        if not isinstance(result, list):
+            raise RuntimeError("Home Assistant returned an invalid states response")
+        return result
+
+    def get_history(
+        self,
+        entity_id: str,
+        start: datetime,
+        end: datetime,
+        *,
+        minimal_response: bool = True,
+    ) -> list[dict[str, Any]]:
+        start_value = start.isoformat()
+        query = urllib.parse.urlencode(
+            {
+                "filter_entity_id": entity_id,
+                "end_time": end.isoformat(),
+                "minimal_response": str(minimal_response).lower(),
+            }
+        )
+        path = "/api/history/period/" + urllib.parse.quote(start_value, safe=":+-TZ") + "?" + query
+        result = self.request("GET", path)
+        if not isinstance(result, list):
+            raise RuntimeError("Home Assistant returned an invalid history response")
+        if not result:
+            return []
+        first = result[0]
+        if not isinstance(first, list):
+            raise RuntimeError("Home Assistant returned an invalid history response")
+        return first
+
+    def get_registries(self) -> dict[str, list[dict[str, Any]]]:
+        """Fetch registry data over HA's authenticated WebSocket API."""
+        commands = {
+            "entities": "config/entity_registry/list",
+            "devices": "config/device_registry/list",
+            "areas": "config/area_registry/list",
+        }
+        results = self.websocket_commands(list(commands.values()))
+        registries: dict[str, list[dict[str, Any]]] = {}
+        for name, command_type in commands.items():
+            value = results.get(command_type, [])
+            registries[name] = value if isinstance(value, list) else []
+        return registries
+
+    def reverse_geocode(self, latitude: float, longitude: float) -> dict[str, Any] | None:
+        """Resolve coordinates inside MCP without exposing the HA token to the geocoder."""
+        base_url = self.settings.reverse_geocoding_url
+        if not base_url:
+            return None
+        separator = "&" if urllib.parse.urlsplit(base_url).query else "?"
+        url = (
+            base_url
+            + separator
+            + urllib.parse.urlencode(
+                {
+                    "format": "jsonv2",
+                    "lat": f"{latitude:.7f}",
+                    "lon": f"{longitude:.7f}",
+                    "addressdetails": "1",
+                    "layer": "address",
+                    "zoom": "18",
+                    "accept-language": self.settings.reverse_geocoding_language,
+                }
+            )
+        )
+        request = urllib.request.Request(
+            url,
+            method="GET",
+            headers={
+                "Accept": "application/json",
+                "User-Agent": "personal-ai-assistant-homeassistant-mcp/0.1",
+            },
+        )
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=self.settings.timeout_seconds,
+            ) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (OSError, TimeoutError, urllib.error.URLError, json.JSONDecodeError) as exc:
+            raise RuntimeError("Reverse geocoding is unavailable") from exc
+        if not isinstance(payload, dict):
+            raise RuntimeError("Reverse geocoder returned an invalid response")
+        address = payload.get("address") if isinstance(payload.get("address"), dict) else {}
+        return {
+            "display_name": payload.get("display_name"),
+            "attribution": payload.get("licence") or "OpenStreetMap contributors",
+            "address": {
+                key: address.get(key)
+                for key in (
+                    "house_number",
+                    "road",
+                    "suburb",
+                    "city_district",
+                    "city",
+                    "town",
+                    "state",
+                    "postcode",
+                    "country",
+                )
+                if address.get(key)
+            },
+        }
+
     def find_entities(
         self,
         query: str = "",
         domain: str = "",
         limit: int = 30,
     ) -> list[dict[str, Any]]:
-        states = self.request("GET", "/api/states")
+        states = self.list_states()
         query = query.strip().lower()
         domain = domain.strip().lower()
         limit = max(1, min(limit, 100))
@@ -64,6 +177,70 @@ class HomeAssistantClient:
             if len(result) >= limit:
                 break
         return result
+
+    def websocket_commands(self, command_types: list[str]) -> dict[str, Any]:
+        """Run read-only registry commands in one authenticated WebSocket session."""
+        if not self.settings.url:
+            raise RuntimeError("HOME_ASSISTANT_URL is not configured")
+
+        parsed = urllib.parse.urlsplit(self.settings.url)
+        ws_scheme = "wss" if parsed.scheme == "https" else "ws"
+        ws_path = parsed.path.rstrip("/") + "/api/websocket"
+        ws_url = urllib.parse.urlunsplit((ws_scheme, parsed.netloc, ws_path, "", ""))
+
+        try:
+            with connect(
+                ws_url,
+                open_timeout=self.settings.timeout_seconds,
+                close_timeout=self.settings.timeout_seconds,
+            ) as socket:
+                hello = self._receive_websocket_json(socket)
+                if hello.get("type") != "auth_required":
+                    raise RuntimeError("Home Assistant WebSocket authentication was not requested")
+
+                socket.send(
+                    json.dumps(
+                        {
+                            "type": "auth",
+                            "access_token": self.settings.read_token(),
+                        }
+                    )
+                )
+                authenticated = self._receive_websocket_json(socket)
+                if authenticated.get("type") != "auth_ok":
+                    raise RuntimeError("Home Assistant WebSocket authentication failed")
+
+                results: dict[str, Any] = {}
+                for command_id, command_type in enumerate(command_types, start=1):
+                    socket.send(json.dumps({"id": command_id, "type": command_type}))
+                    response = self._receive_websocket_json(socket)
+                    if response.get("id") != command_id or response.get("type") != "result":
+                        raise RuntimeError(
+                            "Home Assistant returned an unexpected WebSocket response"
+                        )
+                    if not response.get("success"):
+                        error = response.get("error") or {}
+                        code = str(error.get("code") or "unknown_error")
+                        raise RuntimeError(
+                            f"Home Assistant rejected registry command {command_type}: {code}"
+                        )
+                    results[command_type] = response.get("result")
+                return results
+        except (OSError, TimeoutError, WebSocketException) as exc:
+            raise RuntimeError("Home Assistant WebSocket is unreachable") from exc
+
+    @staticmethod
+    def _receive_websocket_json(socket: Any) -> dict[str, Any]:
+        raw = socket.recv(timeout=30)
+        if isinstance(raw, bytes):
+            raw = raw.decode("utf-8")
+        try:
+            message = json.loads(raw)
+        except (TypeError, json.JSONDecodeError) as exc:
+            raise RuntimeError("Home Assistant returned invalid WebSocket JSON") from exc
+        if not isinstance(message, dict):
+            raise RuntimeError("Home Assistant returned an invalid WebSocket message")
+        return message
 
     def call_service(
         self,

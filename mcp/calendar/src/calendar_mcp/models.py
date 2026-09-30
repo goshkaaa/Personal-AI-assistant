@@ -44,17 +44,23 @@ class EventRecord:
     recurrence_id: date | datetime | None
     busy: bool
     floating_time: bool
+    provider_event_id: str = ""
+
+    @property
+    def event_id(self) -> str:
+        occurrence = self.recurrence_id.isoformat() if self.recurrence_id else ""
+        provider_reference = self.provider_event_id or self.uid
+        return hashlib.sha256(
+            f"{self.calendar_id}\0{provider_reference}\0{occurrence}".encode()
+        ).hexdigest()[:24]
 
     def busy_interval(self, timezone: ZoneInfo) -> BusyInterval:
         return as_interval(self.start, self.end, timezone=timezone)
 
     def public(self, *, include_notes: bool) -> dict[str, object]:
         occurrence = self.recurrence_id.isoformat() if self.recurrence_id else ""
-        event_key = hashlib.sha256(
-            f"{self.calendar_id}\0{self.uid}\0{occurrence}".encode()
-        ).hexdigest()[:24]
         result: dict[str, object] = {
-            "event_id": event_key,
+            "event_id": self.event_id,
             "calendar_id": self.calendar_id,
             "calendar_name": self.calendar_name,
             "uid": self.uid,

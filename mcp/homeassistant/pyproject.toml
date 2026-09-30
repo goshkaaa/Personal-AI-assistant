@@ -8,13 +8,14 @@ version = "0.1.0"
 description = "Home Assistant MCP server"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-dependencies = ["mcp==2.2.0"]
+dependencies = ["mcp==2.2.0", "websockets>=15,<16"]
 
 [project.optional-dependencies]
 dev = ["ruff>=0.15,<0.16"]
 
 [project.scripts]
 homeassistant-mcp = "homeassistant_mcp.server:main"
+homeassistant-location-recorder = "homeassistant_mcp.location:recorder_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

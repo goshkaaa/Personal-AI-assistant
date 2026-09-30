@@ -12,6 +12,7 @@ ENV_FILE = Path(os.environ.get("MCP_ENV_FILE", BASE_DIR / ".env")).expanduser().
 DEFAULT_TOKEN_FILE = (
     Path.home() / ".config" / "personal-ai-assistant" / "secrets" / "home-assistant-token"
 )
+DEFAULT_DATA_DIR = Path.home() / ".local" / "share" / "personal-ai-assistant" / "homeassistant"
 
 
 def load_env(path: Path = ENV_FILE) -> None:
@@ -44,6 +45,13 @@ def env_int(name: str, default: int, *, minimum: int, maximum: int) -> int:
     return value
 
 
+def env_path(name: str, default: Path) -> Path:
+    value = Path(os.environ.get(name, str(default))).expanduser()
+    if not value.is_absolute():
+        value = BASE_DIR / value
+    return value.resolve()
+
+
 @dataclass(frozen=True)
 class HomeAssistantSettings:
     url: str
@@ -51,6 +59,8 @@ class HomeAssistantSettings:
     token_from_environment: str
     allow_write: bool
     timeout_seconds: int
+    reverse_geocoding_url: str = ""
+    reverse_geocoding_language: str = "ru"
 
     @classmethod
     def from_env(cls) -> "HomeAssistantSettings":
@@ -65,6 +75,17 @@ class HomeAssistantSettings:
         if url and urllib.parse.urlsplit(url).scheme not in {"http", "https"}:
             raise RuntimeError("HOME_ASSISTANT_URL must use http or https")
 
+        reverse_geocoding_url = os.environ.get("HOME_ASSISTANT_REVERSE_GEOCODING_URL", "").strip()
+        if reverse_geocoding_url:
+            parsed_geocoder = urllib.parse.urlsplit(reverse_geocoding_url)
+            if parsed_geocoder.scheme != "https" and parsed_geocoder.hostname not in {
+                "127.0.0.1",
+                "localhost",
+            }:
+                raise RuntimeError(
+                    "HOME_ASSISTANT_REVERSE_GEOCODING_URL must use https or localhost"
+                )
+
         return cls(
             url=url,
             token_file=token_path.resolve(),
@@ -76,6 +97,11 @@ class HomeAssistantSettings:
                 minimum=1,
                 maximum=60,
             ),
+            reverse_geocoding_url=reverse_geocoding_url,
+            reverse_geocoding_language=os.environ.get(
+                "HOME_ASSISTANT_REVERSE_GEOCODING_LANGUAGE", "ru"
+            ).strip()
+            or "ru",
         )
 
     def read_token(self) -> str:
@@ -94,3 +120,49 @@ class HomeAssistantSettings:
         if not token:
             raise RuntimeError("Home Assistant token file is empty")
         return token
+
+
+@dataclass(frozen=True)
+class LocationSettings:
+    database_path: Path
+    entity_ids: tuple[str, ...]
+    interval_seconds: int
+    retention_hours: int
+
+    @classmethod
+    def from_env(cls) -> "LocationSettings":
+        load_env()
+        entity_ids = tuple(
+            dict.fromkeys(
+                entity.strip()
+                for entity in os.environ.get("HOME_ASSISTANT_LOCATION_ENTITIES", "").split(",")
+                if entity.strip()
+            )
+        )
+        for entity_id in entity_ids:
+            domain = entity_id.partition(".")[0]
+            if domain not in {"person", "device_tracker"}:
+                raise RuntimeError(
+                    "HOME_ASSISTANT_LOCATION_ENTITIES must contain only person.* "
+                    "or device_tracker.* entities"
+                )
+
+        return cls(
+            database_path=env_path(
+                "HOME_ASSISTANT_LOCATION_DB",
+                DEFAULT_DATA_DIR / "locations.db",
+            ),
+            entity_ids=entity_ids,
+            interval_seconds=env_int(
+                "HOME_ASSISTANT_LOCATION_INTERVAL_SECONDS",
+                600,
+                minimum=60,
+                maximum=86400,
+            ),
+            retention_hours=env_int(
+                "HOME_ASSISTANT_LOCATION_RETENTION_HOURS",
+                72,
+                minimum=1,
+                maximum=720,
+            ),
+        )

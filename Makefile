@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup check config services
+.PHONY: help setup check config services deploy-check
 
 help: ## Show available commands
 	@awk 'BEGIN {FS = ":.*## "; printf "Usage: make <target>\n\n"} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -16,3 +16,6 @@ config: ## Generate the Hermes MCP configuration block
 
 services: ## Install Telegram workers as systemd user services
 	./deployment/install_user_services.py
+
+deploy-check: check ## Run strict deployment safety and readiness checks
+	./deployment/preflight.py

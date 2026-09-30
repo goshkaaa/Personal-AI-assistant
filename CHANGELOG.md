@@ -2,6 +2,36 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Home Assistant
+
+- Added registry-aware read-only tools for arbitrary entities, devices, people,
+  locations, availability, and bounded history.
+- Added natural-language matching across friendly names, entity IDs, device
+  registry, area registry, Russian morphology, and transliteration.
+- Marked read and write tools explicitly with MCP annotations while preserving
+  the existing write allowlist and approval policy.
+- Added an optional 10-minute location recorder with private SQLite storage and
+  a configurable retention window that defaults to 72 hours.
+- Added optional reverse geocoding inside the MCP process; it remains disabled
+  until a trusted HTTPS endpoint is explicitly configured.
+- Clarified `not_home` as a Home Assistant zone state rather than a statement
+  about residence, and improved address-level reverse-geocoding requests.
+
+### Calendar
+
+- Added confirmed event deletion with the same prepare/commit safety model used
+  for event creation.
+
+### Deployment
+
+- Reworked the Russian and English project documentation around the current MCP
+  feature set and production setup.
+- Added a strict deployment preflight that checks installation, permissions,
+  generated configuration, Git state, and the pinned Hermes revision without
+  publishing or deploying anything.
+
 ## 0.3.0 - 2026-09-28
 
 ### Calendar

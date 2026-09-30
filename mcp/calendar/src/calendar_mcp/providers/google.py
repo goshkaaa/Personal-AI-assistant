@@ -125,6 +125,24 @@ class GoogleCalendarService:
             raise self._calendar_error(error, "create event") from error
         return str(result.get("id") or uid), False
 
+    def delete_event(self, calendar_id: str, provider_event_id: str) -> bool:
+        calendar = self._select_calendars(calendar_id, allow_all=False)[0]
+        try:
+            (
+                self.service.events()
+                .delete(
+                    calendarId=calendar["id"],
+                    eventId=provider_event_id,
+                    sendUpdates="none",
+                )
+                .execute()
+            )
+        except HttpError as error:
+            if error.resp.status in {404, 410}:
+                return False
+            raise self._calendar_error(error, "delete event") from error
+        return True
+
     def require_calendar(self, calendar_id: str) -> CalendarInfo:
         calendar = self._select_calendars(calendar_id, allow_all=False)[0]
         return self._calendar_info(calendar)
@@ -229,6 +247,7 @@ class GoogleCalendarService:
             recurrence_id=recurrence_id,
             busy=item.get("transparency") != "transparent",
             floating_time=False,
+            provider_event_id=str(item.get("id") or ""),
         )
 
     @staticmethod

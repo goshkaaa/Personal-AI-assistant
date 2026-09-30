@@ -37,6 +37,12 @@ class CalendarClient(Protocol):
         uid: str,
     ) -> tuple[str, bool]: ...
 
+    def delete_event(
+        self,
+        calendar_id: str,
+        provider_event_id: str,
+    ) -> bool: ...
+
     def require_calendar(self, calendar_id: str) -> CalendarInfo: ...
 
 

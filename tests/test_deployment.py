@@ -10,6 +10,7 @@ from deployment.install_user_services import unit
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "deployment" / "generate_config.py"
+PREFLIGHT = ROOT / "deployment" / "preflight.py"
 LOCAL_SERVICES = ("calendar", "email", "homeassistant", "obsidian", "telegram")
 
 
@@ -57,6 +58,18 @@ class DeploymentIntegrationTests(unittest.TestCase):
 
         self.assertIn(f"WorkingDirectory={working_directory}\n", rendered)
         self.assertIn(f"ExecStart={executable}\n", rendered)
+
+    def test_preflight_accepts_a_source_release_candidate(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(PREFLIGHT), "--allow-dirty", "--source-only"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("No files were published or deployed", result.stdout)
 
 
 if __name__ == "__main__":

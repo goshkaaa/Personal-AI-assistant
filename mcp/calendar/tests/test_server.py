@@ -6,13 +6,15 @@ import unittest
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 from zoneinfo import ZoneInfo
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 PROVIDER_EXAMPLES = Path(__file__).resolve().parents[1] / "providers"
 sys.path.insert(0, str(SRC))
 
+from calendar_mcp import server as server_module  # noqa: E402
 from calendar_mcp.config import (  # noqa: E402
     CALDAV_URLS,
     CalDavAccountSettings,
@@ -20,7 +22,7 @@ from calendar_mcp.config import (  # noqa: E402
     Settings,
 )
 from calendar_mcp.logic import BusyInterval, find_free_intervals  # noqa: E402
-from calendar_mcp.models import CalendarInfo  # noqa: E402
+from calendar_mcp.models import CalendarInfo, EventRecord  # noqa: E402
 from calendar_mcp.proposals import ProposalStore  # noqa: E402
 from calendar_mcp.providers.google import GoogleCalendarService  # noqa: E402
 from calendar_mcp.server import mcp  # noqa: E402
@@ -32,15 +34,19 @@ class CalendarServerTests(unittest.TestCase):
         self.assertEqual(
             set(mcp._tool_manager._tools),
             {
+                "calendar_commit_delete_event",
                 "calendar_commit_event",
                 "calendar_find_free_slots",
                 "calendar_list_accounts",
                 "calendar_list_calendars",
                 "calendar_list_events",
+                "calendar_prepare_delete_event",
                 "calendar_prepare_event",
                 "calendar_status",
             },
         )
+        delete_tool = mcp._tool_manager._tools["calendar_commit_delete_event"]
+        self.assertTrue(delete_tool.annotations.destructive_hint)
 
     def test_multiple_provider_accounts_are_loaded_and_routed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -150,6 +156,29 @@ class CalendarServerTests(unittest.TestCase):
         self.assertEqual(len(info.calendar_id), 24)
         self.assertEqual(event.start, datetime.fromisoformat("2026-09-28T10:00:00+03:00"))
         self.assertEqual(event.calendar_id, info.calendar_id)
+        self.assertEqual(event.provider_event_id, "provider-event-id")
+        self.assertNotEqual(event.event_id, event.provider_event_id)
+
+    def test_google_adapter_deletes_exact_provider_event_without_notifications(self) -> None:
+        account = GoogleAccountSettings(
+            account_id="personal",
+            label="Personal",
+            credentials_file=Path("credentials.json"),
+            token_file=Path("token.json"),
+            timezone_name="UTC",
+        )
+        api = MagicMock()
+        adapter = GoogleCalendarService(self._settings(account), account, service=api)
+        adapter._select_calendars = MagicMock(return_value=[{"id": "provider-calendar-id"}])
+
+        deleted = adapter.delete_event("opaque-calendar-id", "provider-event-id")
+
+        self.assertTrue(deleted)
+        api.events.return_value.delete.assert_called_once_with(
+            calendarId="provider-calendar-id",
+            eventId="provider-event-id",
+            sendUpdates="none",
+        )
 
     def test_free_slots_handle_busy_intervals_across_multiple_days(self) -> None:
         slots = find_free_intervals(
@@ -228,7 +257,26 @@ class CalendarServerTests(unittest.TestCase):
                     row[1] for row in connection.execute("PRAGMA table_info(write_audit)")
                 }
             self.assertIn("account_id", proposal_columns)
+            self.assertIn("action", proposal_columns)
+            self.assertIn("target_ref", proposal_columns)
             self.assertIn("account_id", audit_columns)
+
+    def test_delete_proposal_keeps_provider_reference_private(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            store = ProposalStore(Path(temporary) / "calendar.sqlite3")
+            proposal = store.create(
+                action="delete",
+                account_id="work",
+                calendar_id="calendar-1",
+                uid="unique-proposal-operation-id",
+                target_ref="provider-event-id",
+                payload={"event_id": "opaque-event-id", "title": "Planning"},
+                ttl_seconds=600,
+            )
+
+            self.assertEqual(proposal.action, "delete")
+            self.assertEqual(proposal.target_ref, "provider-event-id")
+            self.assertNotIn("provider-event-id", json.dumps(proposal.payload))
 
     @staticmethod
     def _settings(account: GoogleAccountSettings) -> Settings:
@@ -241,6 +289,87 @@ class CalendarServerTests(unittest.TestCase):
             max_range_days=90,
             max_results=200,
         )
+
+
+class DeleteWorkflowTests(unittest.IsolatedAsyncioTestCase):
+    async def test_delete_requires_confirmation_and_targets_resolved_event(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            account = GoogleAccountSettings(
+                account_id="personal",
+                label="Personal",
+                credentials_file=Path("credentials.json"),
+                token_file=Path("token.json"),
+                timezone_name="UTC",
+                write_calendar_id="opaque-calendar-id",
+                write_enabled=True,
+            )
+            settings = Settings(
+                accounts=(account,),
+                default_account_id=account.account_id,
+                proposal_ttl_seconds=600,
+                state_db=Path(temporary) / "calendar.sqlite3",
+                timeout_seconds=25,
+                max_range_days=90,
+                max_results=200,
+            )
+            event = EventRecord(
+                calendar_id="opaque-calendar-id",
+                calendar_name="Personal",
+                uid="ical-uid",
+                title="Planning",
+                start=datetime(2026, 9, 29, 10, tzinfo=UTC),
+                end=datetime(2026, 9, 29, 11, tzinfo=UTC),
+                all_day=False,
+                location="",
+                notes="",
+                status="CONFIRMED",
+                recurrence_id=None,
+                busy=True,
+                floating_time=False,
+                provider_event_id="provider-event-id",
+            )
+            client = MagicMock()
+            client.search_events.return_value = ([event], False)
+            client.delete_event.return_value = True
+            service = CalendarService(settings, clients={account.account_id: client})
+
+            with (
+                patch.object(server_module, "CalendarService") as service_class,
+                patch.object(server_module, "get_settings", return_value=settings),
+            ):
+                service_class.from_env.return_value = service
+                service_class.return_value = service
+                prepared = await server_module.calendar_prepare_delete_event(
+                    event.event_id,
+                    "2026-09-29",
+                    "2026-09-30",
+                    account_id="personal",
+                )
+
+                self.assertEqual(prepared["status"], "prepared")
+                self.assertNotIn("provider-event-id", json.dumps(prepared))
+
+                declined_context = MagicMock()
+                declined_context.elicit = AsyncMock(return_value=SimpleNamespace(action="decline"))
+                declined = await server_module.calendar_commit_delete_event(
+                    prepared["proposal_id"],
+                    declined_context,
+                )
+                self.assertEqual(declined["status"], "declined")
+                client.delete_event.assert_not_called()
+
+                accepted_context = MagicMock()
+                accepted_context.elicit = AsyncMock(return_value=SimpleNamespace(action="accept"))
+                deleted = await server_module.calendar_commit_delete_event(
+                    prepared["proposal_id"],
+                    accepted_context,
+                )
+
+            self.assertEqual(deleted["status"], "deleted")
+            client.delete_event.assert_called_once_with(
+                "opaque-calendar-id",
+                "provider-event-id",
+            )
 
 
 if __name__ == "__main__":

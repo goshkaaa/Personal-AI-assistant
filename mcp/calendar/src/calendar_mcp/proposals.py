@@ -14,7 +14,9 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Proposal:
     proposal_id: str
+    action: str
     uid: str
+    target_ref: str
     account_id: str
     calendar_id: str
     payload: dict[str, object]
@@ -45,7 +47,9 @@ class ProposalStore:
                 """
                 CREATE TABLE IF NOT EXISTS proposals (
                     proposal_id TEXT PRIMARY KEY,
+                    action TEXT NOT NULL DEFAULT 'create',
                     uid TEXT NOT NULL UNIQUE,
+                    target_ref TEXT,
                     account_id TEXT NOT NULL,
                     calendar_id TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
@@ -73,6 +77,18 @@ class ProposalStore:
             )
             self._ensure_column(
                 connection,
+                table="proposals",
+                column="action",
+                definition="TEXT NOT NULL DEFAULT 'create'",
+            )
+            self._ensure_column(
+                connection,
+                table="proposals",
+                column="target_ref",
+                definition="TEXT",
+            )
+            self._ensure_column(
+                connection,
                 table="write_audit",
                 column="account_id",
                 definition="TEXT NOT NULL DEFAULT 'default'",
@@ -88,7 +104,11 @@ class ProposalStore:
         uid: str,
         payload: dict[str, object],
         ttl_seconds: int,
+        action: str = "create",
+        target_ref: str = "",
     ) -> Proposal:
+        if action not in {"create", "delete"}:
+            raise ValueError("Unsupported calendar proposal action")
         now = int(time.time())
         self.purge(now=now)
         proposal_id = secrets.token_urlsafe(18)
@@ -97,12 +117,15 @@ class ProposalStore:
             connection.execute(
                 """
                 INSERT INTO proposals (
-                    proposal_id, uid, account_id, calendar_id, payload_json, created_at, expires_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    proposal_id, action, uid, target_ref, account_id, calendar_id,
+                    payload_json, created_at, expires_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     proposal_id,
+                    action,
                     uid,
+                    target_ref or None,
                     account_id,
                     calendar_id,
                     encoded,
@@ -124,7 +147,9 @@ class ProposalStore:
             return None
         return Proposal(
             proposal_id=row["proposal_id"],
+            action=row["action"],
             uid=row["uid"],
+            target_ref=row["target_ref"] or row["uid"],
             account_id=row["account_id"],
             calendar_id=row["calendar_id"],
             payload=json.loads(row["payload_json"]),
@@ -143,7 +168,10 @@ class ProposalStore:
         uid: str,
         receipt: dict[str, object],
         result: str,
+        action: str = "create",
     ) -> None:
+        if action not in {"create", "delete"}:
+            raise ValueError("Unsupported calendar audit action")
         now = int(time.time())
         encoded_receipt = json.dumps(
             receipt, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -162,9 +190,9 @@ class ProposalStore:
                 """
                 INSERT INTO write_audit (
                     created_at, action, account_id, calendar_id, uid_hash, result
-                ) VALUES (?, 'create', ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (now, account_id, calendar_id, uid_hash, result),
+                (now, action, account_id, calendar_id, uid_hash, result),
             )
 
     def record_failure(
@@ -174,7 +202,10 @@ class ProposalStore:
         calendar_id: str,
         uid: str,
         result: str,
+        action: str = "create",
     ) -> None:
+        if action not in {"create", "delete"}:
+            raise ValueError("Unsupported calendar audit action")
         now = int(time.time())
         uid_hash = hashlib.sha256(uid.encode("utf-8")).hexdigest()[:20]
         with closing(self._connect()) as connection, connection:
@@ -182,9 +213,9 @@ class ProposalStore:
                 """
                 INSERT INTO write_audit (
                     created_at, action, account_id, calendar_id, uid_hash, result
-                ) VALUES (?, 'create', ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (now, account_id, calendar_id, uid_hash, result[:80]),
+                (now, action, account_id, calendar_id, uid_hash, result[:80]),
             )
 
     @staticmethod

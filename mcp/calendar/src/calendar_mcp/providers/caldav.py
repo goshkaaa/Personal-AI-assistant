@@ -155,6 +155,26 @@ class CalDavCalendarService:
                 raise
             return uid, False
 
+    def delete_event(self, calendar_id: str, provider_event_id: str) -> bool:
+        """Delete one non-recurring event by UID; return false when already absent."""
+        with self._principal() as principal:
+            calendars = principal.get_calendars()
+            calendar = self._select(calendars, calendar_id, allow_all=False)[0]
+            try:
+                event = calendar.get_event_by_uid(provider_event_id)
+                if event is None:
+                    return False
+                event.delete()
+                return True
+            except caldav_error.NotFoundError:
+                return False
+            except caldav_error.DAVError:
+                matches = calendar.search(event=True, uid=provider_event_id)
+                if not matches:
+                    return False
+                matches[0].delete()
+                return True
+
     def require_calendar(self, calendar_id: str) -> CalendarInfo:
         with self._principal() as principal:
             calendars = principal.get_calendars()
@@ -248,6 +268,7 @@ class CalDavCalendarService:
             floating_time=(
                 isinstance(start, datetime) and (start.tzinfo is None or start.utcoffset() is None)
             ),
+            provider_event_id=uid,
         )
 
     @staticmethod

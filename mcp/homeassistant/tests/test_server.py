@@ -2,7 +2,9 @@ import os
 import sys
 import tempfile
 import unittest
+import urllib.parse
 from pathlib import Path
+from unittest.mock import patch
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 sys.path.insert(0, str(SRC))
@@ -68,6 +70,32 @@ class WritePolicyTests(unittest.TestCase):
             client.call_service("light", "restart", "light.desk")
 
 
+class ReverseGeocodingTests(unittest.TestCase):
+    @patch("homeassistant_mcp.client.urllib.request.urlopen")
+    def test_reverse_geocoder_never_receives_home_assistant_token(self, urlopen):
+        response = urlopen.return_value.__enter__.return_value
+        response.read.return_value = b'{"display_name":"Example","address":{"city":"Moscow"}}'
+        settings = HomeAssistantSettings(
+            url="http://homeassistant.test",
+            token_file=Path("unused"),
+            token_from_environment="highly-secret-token",
+            allow_write=False,
+            timeout_seconds=15,
+            reverse_geocoding_url="https://geocoder.example/reverse",
+        )
+
+        result = HomeAssistantClient(settings).reverse_geocode(55.75, 37.62)
+
+        request = urlopen.call_args.args[0]
+        query = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(request.full_url).query))
+        self.assertNotIn("Authorization", request.headers)
+        self.assertNotIn("highly-secret-token", request.full_url)
+        self.assertEqual(query["layer"], "address")
+        self.assertEqual(query["zoom"], "18")
+        self.assertEqual(result["display_name"], "Example")
+        self.assertEqual(result["attribution"], "OpenStreetMap contributors")
+
+
 class ServerTests(unittest.TestCase):
     def test_public_tool_contract(self):
         server = create_server()
@@ -76,13 +104,39 @@ class ServerTests(unittest.TestCase):
             {
                 "ha_call_service",
                 "ha_find_entities",
+                "ha_get_location",
+                "ha_get_location_history",
                 "ha_get_state",
+                "ha_record_location",
                 "ha_status",
                 "ha_toggle",
                 "ha_turn_off",
                 "ha_turn_on",
+                "find_entities",
+                "get_device",
+                "get_entity_history",
+                "get_entity_state",
+                "get_person_location",
+                "list_entities",
             },
         )
+
+    def test_read_and_write_annotations_are_separate(self):
+        tools = create_server()._tool_manager._tools
+        for name in (
+            "find_entities",
+            "get_device",
+            "get_entity_history",
+            "get_entity_state",
+            "get_person_location",
+            "list_entities",
+        ):
+            self.assertTrue(tools[name].annotations.read_only_hint, name)
+            self.assertFalse(tools[name].annotations.destructive_hint, name)
+
+        for name in ("ha_call_service", "ha_toggle", "ha_turn_off", "ha_turn_on"):
+            self.assertFalse(tools[name].annotations.read_only_hint, name)
+            self.assertTrue(tools[name].annotations.destructive_hint, name)
 
 
 if __name__ == "__main__":
