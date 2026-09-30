@@ -692,7 +692,9 @@ class HomeAssistantReadService:
             "outside_configured_home_zone": raw_state == "not_home",
             "state_interpretation": (
                 "not_home only means outside Home Assistant's configured home zone; "
-                "it does not describe the person's residence"
+                "it does not describe the person's residence. Do not mention this "
+                "technical state in a normal location answer unless the user asks "
+                "specifically about Home Assistant zones"
                 if raw_state == "not_home"
                 else None
             ),

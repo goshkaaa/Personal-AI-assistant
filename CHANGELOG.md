@@ -18,6 +18,7 @@ All notable changes to this project are documented in this file.
   until a trusted HTTPS endpoint is explicitly configured.
 - Clarified `not_home` as a Home Assistant zone state rather than a statement
   about residence, and improved address-level reverse-geocoding requests.
+- Omitted the technical home-zone status from ordinary person-location answers.
 
 ### Calendar
 

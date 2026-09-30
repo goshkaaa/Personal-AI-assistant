@@ -136,6 +136,7 @@ class DiscoveryTests(unittest.TestCase):
         self.assertIsNone(result["zone"])
         self.assertTrue(result["outside_configured_home_zone"])
         self.assertIn("does not describe", result["state_interpretation"])
+        self.assertIn("Do not mention", result["state_interpretation"])
         self.assertEqual(result["address"], "Example address")
         self.assertEqual(result["address_details"], {"city": "Moscow"})
         self.assertIn("openstreetmap.org", result["map_url"])

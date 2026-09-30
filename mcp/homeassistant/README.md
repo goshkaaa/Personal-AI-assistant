@@ -23,6 +23,7 @@ uv sync --locked --no-editable
   время обновления, ссылка на карту и адрес от настроенного внутри MCP
   reverse geocoder. Техническое состояние HA `not_home` означает только выход
   за пределы настроенной в HA домашней зоны и не описывает место жительства.
+  В обычном ответе о местоположении этот технический статус следует опускать.
 - `get_entity_history(entity_id, start, end, hours, limit)` — история из HA за
   ограниченный период.
 - `list_entities(domain, area, device, state, limit)` — фильтр по registry и состоянию;

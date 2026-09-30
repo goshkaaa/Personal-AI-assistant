@@ -137,6 +137,8 @@ def register_tools(server: MCPServer) -> None:
         Returns zone/state, coordinates, GPS accuracy, freshness, a map URL, and an address
         from HA or the configured MCP geocoder. The HA state ``not_home`` means only that
         the entity is outside HA's configured home zone; it says nothing about residence.
+        Omit this technical state from normal location answers unless the user asks about
+        Home Assistant zones specifically.
         """
         return HomeAssistantReadService.from_env().get_person_location(person_id)
 

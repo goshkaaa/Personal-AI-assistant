@@ -83,7 +83,8 @@ process and is never passed in model-visible tool arguments.
 
 For location responses, HA's technical `not_home` state only means that the
 entity is outside the configured Home Assistant home zone. It does not describe
-the person's residence; the assistant should prefer the resolved address or zone.
+the person's residence. For an ordinary location question the assistant omits
+that technical state and prefers the resolved address or a named non-home zone.
 
 An optional local recorder can retain consented location points for a maximum of
 72 hours. External reverse geocoding is disabled by default so precise coordinates
