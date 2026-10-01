@@ -1,7 +1,5 @@
 """Location tracking use cases independent of storage and transport details."""
 
-from __future__ import annotations
-
 import logging
 import math
 from datetime import UTC, datetime

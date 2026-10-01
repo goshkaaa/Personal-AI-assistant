@@ -1,7 +1,5 @@
 """Backward-compatible account-service API."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 
 from .application.accounts import CalendarService as _CalendarService

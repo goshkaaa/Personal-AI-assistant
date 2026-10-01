@@ -1,7 +1,5 @@
 """Natural-language normalization used by entity resolution."""
 
-from __future__ import annotations
-
 import re
 from typing import Any
 

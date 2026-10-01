@@ -1,7 +1,5 @@
 """Typed domain models independent from MCP and network transports."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any
 

@@ -1,7 +1,5 @@
 """MCP tool adapters over injected application services."""
 
-from __future__ import annotations
-
 from typing import Any, Protocol
 
 from mcp.server.mcpserver import MCPServer

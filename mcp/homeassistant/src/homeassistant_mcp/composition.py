@@ -1,7 +1,5 @@
 """Composition root for wiring application services to infrastructure."""
 
-from __future__ import annotations
-
 from functools import cached_property
 
 from .application.location_service import LocationService

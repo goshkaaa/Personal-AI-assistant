@@ -1,7 +1,5 @@
 """Ports used by calendar application services."""
 
-from __future__ import annotations
-
 from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Protocol
@@ -41,8 +39,8 @@ class CalendarClient(Protocol):
 class CalendarClientFactory(Protocol):
     def build(
         self,
-        settings: Settings,
-        account: CalendarAccountSettings,
+        settings: "Settings",
+        account: "CalendarAccountSettings",
     ) -> CalendarClient: ...
 
 

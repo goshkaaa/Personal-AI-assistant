@@ -1,7 +1,5 @@
 """Composition root for Calendar application services and adapters."""
 
-from __future__ import annotations
-
 from functools import cached_property
 
 from .application.accounts import CalendarService

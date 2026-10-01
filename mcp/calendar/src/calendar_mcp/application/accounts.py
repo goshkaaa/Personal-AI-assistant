@@ -1,7 +1,5 @@
 """Account routing independent from concrete calendar providers."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 
 from ..config import CalendarAccountSettings, Settings

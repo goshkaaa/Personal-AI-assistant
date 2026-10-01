@@ -1,7 +1,5 @@
 """Explainable natural-language entity ranking."""
 
-from __future__ import annotations
-
 from ..domain.models import (
     EntityMatch,
     EntityRecord,

@@ -1,7 +1,5 @@
 """Map domain entities to stable MCP response dictionaries."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from ..domain.models import EntityMatch, EntityRecord

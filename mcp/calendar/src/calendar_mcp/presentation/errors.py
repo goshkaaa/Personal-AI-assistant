@@ -1,7 +1,5 @@
 """Stable public error mapping for Calendar MCP tools."""
 
-from __future__ import annotations
-
 from ..config import ConfigurationError
 from ..logic import InputError
 from ..models import CalendarServiceError

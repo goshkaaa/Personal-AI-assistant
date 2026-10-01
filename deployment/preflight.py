@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Fail closed when a checkout is not ready for a private deployment."""
 
-from __future__ import annotations
-
 import argparse
 import os
 import stat

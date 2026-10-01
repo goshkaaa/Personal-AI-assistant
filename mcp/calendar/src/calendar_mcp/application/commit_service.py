@@ -1,7 +1,5 @@
 """Confirmed and idempotent calendar write use cases."""
 
-from __future__ import annotations
-
 import asyncio
 import time
 from datetime import UTC, datetime

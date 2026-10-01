@@ -1,7 +1,5 @@
 """HTTP/WebSocket adapter implementing the Home Assistant gateway port."""
 
-from __future__ import annotations
-
 import json
 import urllib.error
 import urllib.parse

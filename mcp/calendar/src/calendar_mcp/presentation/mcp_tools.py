@@ -1,7 +1,5 @@
 """Thin MCP tool adapters over injected calendar application services."""
 
-from __future__ import annotations
-
 from typing import Protocol
 
 from mcp.server.mcpserver import Context, MCPServer

@@ -1,7 +1,5 @@
 """Factory for concrete Google Calendar and CalDAV clients."""
 
-from __future__ import annotations
-
 from ..config import (
     CalDavAccountSettings,
     CalendarAccountSettings,

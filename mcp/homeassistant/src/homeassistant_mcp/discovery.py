@@ -1,7 +1,5 @@
 """Backward-compatible import for the layered read application service."""
 
-from __future__ import annotations
-
 from dataclasses import asdict
 from typing import Any
 

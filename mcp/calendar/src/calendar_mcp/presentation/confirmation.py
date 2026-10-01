@@ -1,7 +1,5 @@
 """Interactive MCP elicitation adapter for calendar write confirmation."""
 
-from __future__ import annotations
-
 import json
 
 from mcp.server.mcpserver import Context

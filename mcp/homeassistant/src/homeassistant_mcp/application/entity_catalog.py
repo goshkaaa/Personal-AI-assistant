@@ -1,7 +1,5 @@
 """Build a registry-enriched snapshot from Home Assistant data."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from ..domain.models import EntityRecord, RegistrySnapshot
