@@ -7,14 +7,15 @@ from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from zoneinfo import ZoneInfo
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 PROVIDER_EXAMPLES = Path(__file__).resolve().parents[1] / "providers"
 sys.path.insert(0, str(SRC))
 
-from calendar_mcp import server as server_module  # noqa: E402
+from calendar_mcp.application.commit_service import CalendarCommitService  # noqa: E402
+from calendar_mcp.application.proposal_service import CalendarProposalService  # noqa: E402
 from calendar_mcp.config import (  # noqa: E402
     CALDAV_URLS,
     CalDavAccountSettings,
@@ -23,6 +24,7 @@ from calendar_mcp.config import (  # noqa: E402
 )
 from calendar_mcp.logic import BusyInterval, find_free_intervals  # noqa: E402
 from calendar_mcp.models import CalendarInfo, EventRecord  # noqa: E402
+from calendar_mcp.presentation.mcp_tools import CalendarToolRegistry  # noqa: E402
 from calendar_mcp.proposals import ProposalStore  # noqa: E402
 from calendar_mcp.providers.google import GoogleCalendarService  # noqa: E402
 from calendar_mcp.server import mcp  # noqa: E402
@@ -332,38 +334,38 @@ class DeleteWorkflowTests(unittest.IsolatedAsyncioTestCase):
             client.search_events.return_value = ([event], False)
             client.delete_event.return_value = True
             service = CalendarService(settings, clients={account.account_id: client})
-
-            with (
-                patch.object(server_module, "CalendarService") as service_class,
-                patch.object(server_module, "get_settings", return_value=settings),
-            ):
-                service_class.from_env.return_value = service
-                service_class.return_value = service
-                prepared = await server_module.calendar_prepare_delete_event(
-                    event.event_id,
-                    "2026-09-29",
-                    "2026-09-30",
-                    account_id="personal",
+            store = ProposalStore(settings.state_db)
+            tools = CalendarToolRegistry(
+                SimpleNamespace(
+                    proposal_service=CalendarProposalService(settings, service, store),
+                    commit_service=CalendarCommitService(service, store),
                 )
+            )
+            prepared = await tools.calendar_prepare_delete_event(
+                event.event_id,
+                "2026-09-29",
+                "2026-09-30",
+                account_id="personal",
+            )
 
-                self.assertEqual(prepared["status"], "prepared")
-                self.assertNotIn("provider-event-id", json.dumps(prepared))
+            self.assertEqual(prepared["status"], "prepared")
+            self.assertNotIn("provider-event-id", json.dumps(prepared))
 
-                declined_context = MagicMock()
-                declined_context.elicit = AsyncMock(return_value=SimpleNamespace(action="decline"))
-                declined = await server_module.calendar_commit_delete_event(
-                    prepared["proposal_id"],
-                    declined_context,
-                )
-                self.assertEqual(declined["status"], "declined")
-                client.delete_event.assert_not_called()
+            declined_context = MagicMock()
+            declined_context.elicit = AsyncMock(return_value=SimpleNamespace(action="decline"))
+            declined = await tools.calendar_commit_delete_event(
+                prepared["proposal_id"],
+                declined_context,
+            )
+            self.assertEqual(declined["status"], "declined")
+            client.delete_event.assert_not_called()
 
-                accepted_context = MagicMock()
-                accepted_context.elicit = AsyncMock(return_value=SimpleNamespace(action="accept"))
-                deleted = await server_module.calendar_commit_delete_event(
-                    prepared["proposal_id"],
-                    accepted_context,
-                )
+            accepted_context = MagicMock()
+            accepted_context.elicit = AsyncMock(return_value=SimpleNamespace(action="accept"))
+            deleted = await tools.calendar_commit_delete_event(
+                prepared["proposal_id"],
+                accepted_context,
+            )
 
             self.assertEqual(deleted["status"], "deleted")
             client.delete_event.assert_called_once_with(

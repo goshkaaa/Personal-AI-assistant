@@ -1,11 +1,10 @@
 """Human-readable validation for the private email account configuration."""
 
-from .service import EmailService
+from .composition import EmailContainer
 
 
 def main() -> None:
-    service = EmailService.from_env()
-    accounts = service.list_accounts()
+    accounts = EmailContainer().service.list_accounts()
     print(f"Email configuration is valid: {len(accounts)} account(s)")
     for account in accounts:
         default_marker = " (default)" if account["is_default"] else ""

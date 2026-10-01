@@ -245,6 +245,9 @@ class ProposalStore:
             )
             connection.execute("DELETE FROM write_audit WHERE created_at < ?", (audit_cutoff,))
 
+    def is_private(self) -> bool:
+        return secure_database_permissions(self.path)
+
 
 def secure_database_permissions(path: Path) -> bool:
     if not path.exists():

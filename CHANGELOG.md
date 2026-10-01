@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file.
 
 ### Home Assistant
 
+- Refactored the MCP into domain, application, infrastructure, and presentation
+  layers with a process-scoped dependency container and compatibility facades.
+- Added architecture tests that prevent domain and application code from
+  depending on MCP transport or infrastructure adapters.
 - Added registry-aware read-only tools for arbitrary entities, devices, people,
   locations, availability, and bounded history.
 - Added natural-language matching across friendly names, entity IDs, device
@@ -22,8 +26,21 @@ All notable changes to this project are documented in this file.
 
 ### Calendar
 
+- Refactored the Calendar MCP into domain, application, infrastructure, and
+  presentation layers with process-scoped dependency injection.
+- Split the former monolithic server into read queries, proposal preparation,
+  confirmed commit workflows, MCP confirmation, and public error mapping.
+- Added architecture tests while preserving the nine-tool public contract and
+  the existing prepare/commit write-safety workflow.
 - Added confirmed event deletion with the same prepare/commit safety model used
   for event creation.
+
+### Email
+
+- Refactored the MCP into domain, application, infrastructure, and presentation
+  layers with a process-scoped dependency container and reusable provider clients.
+- Moved account send permission and explicit confirmation checks into the
+  application service, and added architecture and write-policy tests.
 
 ### Deployment
 

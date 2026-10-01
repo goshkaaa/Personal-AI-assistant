@@ -38,6 +38,30 @@ Reverse geocoding включается только явно через
 координаты и никогда не добавляет к запросу Home Assistant token. Для публичного
 Nominatim учитывайте его usage policy и укажите пользователям атрибуцию OpenStreetMap.
 
+## Архитектура
+
+Код разделён на слои с направленными внутрь зависимостями:
+
+```text
+presentation/    MCP tools и annotations
+       ↓
+application/     сценарии чтения, поиск entities, геопозиция
+       ↓
+domain/          модели и порты без MCP, HTTP и SQLite
+       ↑
+infrastructure/  Home Assistant API и SQLite-адаптеры
+```
+
+`composition.py` — единственное место сборки зависимостей. Один контейнер и один
+клиент Home Assistant используются в течение жизни MCP-процесса. Файлы
+`client.py`, `discovery.py`, `location.py` и `tools.py` оставлены тонкими
+совместимыми фасадами, чтобы существующие импорты и entry points не ломались.
+
+Архитектурные тесты запрещают зависимость domain/application от MCP и
+infrastructure. Новая бизнес-логика должна добавляться в `application`, новые
+API/хранилища — через порты `domain` и адаптеры `infrastructure`, а внешний MCP
+контракт — в `presentation`.
+
 ## История геопозиции
 
 Добавьте разрешённые HA entities в `.env`:

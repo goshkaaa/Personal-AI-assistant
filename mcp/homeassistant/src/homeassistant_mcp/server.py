@@ -2,10 +2,12 @@
 
 from mcp.server.mcpserver import MCPServer
 
+from .composition import HomeAssistantContainer
 from .tools import register_tools
 
 
-def create_server() -> MCPServer:
+def create_server(container: HomeAssistantContainer | None = None) -> MCPServer:
+    dependencies = container or HomeAssistantContainer()
     server = MCPServer(
         name="homeassistant",
         instructions=(
@@ -27,7 +29,7 @@ def create_server() -> MCPServer:
             "only when a stored movement route is requested."
         ),
     )
-    register_tools(server)
+    register_tools(server, dependencies)
     return server
 
 

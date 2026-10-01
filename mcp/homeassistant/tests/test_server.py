@@ -71,7 +71,7 @@ class WritePolicyTests(unittest.TestCase):
 
 
 class ReverseGeocodingTests(unittest.TestCase):
-    @patch("homeassistant_mcp.client.urllib.request.urlopen")
+    @patch("homeassistant_mcp.infrastructure.home_assistant.urllib.request.urlopen")
     def test_reverse_geocoder_never_receives_home_assistant_token(self, urlopen):
         response = urlopen.return_value.__enter__.return_value
         response.read.return_value = b'{"display_name":"Example","address":{"city":"Moscow"}}'

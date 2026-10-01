@@ -2,10 +2,12 @@
 
 from mcp.server.mcpserver import MCPServer
 
-from .tools import register_email_tools
+from .composition import EmailContainer
+from .presentation.mcp_tools import register_email_tools
 
 
-def create_server() -> MCPServer:
+def create_server(container: EmailContainer | None = None) -> MCPServer:
+    dependencies = container or EmailContainer()
     server = MCPServer(
         name="email",
         instructions=(
@@ -14,7 +16,7 @@ def create_server() -> MCPServer:
             "replies are sent only when account policy and the individual call both allow it."
         ),
     )
-    register_email_tools(server)
+    register_email_tools(server, dependencies.service)
     return server
 
 

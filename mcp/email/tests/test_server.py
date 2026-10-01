@@ -12,6 +12,8 @@ SRC = Path(__file__).resolve().parents[1] / "src"
 PROVIDER_EXAMPLES = Path(__file__).resolve().parents[1] / "providers"
 sys.path.insert(0, str(SRC))
 
+import email_mcp.service as legacy_service  # noqa: E402
+from email_mcp.composition import EmailContainer  # noqa: E402
 from email_mcp.config import (  # noqa: E402
     EmailSettings,
     GmailAccountSettings,
@@ -21,10 +23,21 @@ from email_mcp.config import (  # noqa: E402
 from email_mcp.providers.gmail import GmailClient  # noqa: E402
 from email_mcp.providers.imap_smtp import ImapSmtpClient, InternetMessageCodec  # noqa: E402
 from email_mcp.server import create_server  # noqa: E402
-from email_mcp.service import EmailService  # noqa: E402
+
+EmailService = legacy_service.EmailService
 
 
 class EmailServerTests(unittest.TestCase):
+    @patch("email_mcp.service.EmailSettings.from_env")
+    def test_legacy_service_factory_and_settings_export(self, from_env) -> None:
+        settings = EmailSettings(accounts=(), default_account_id="default")
+        from_env.return_value = settings
+
+        service = EmailService.from_env()
+
+        self.assertIs(legacy_service.EmailSettings, EmailSettings)
+        self.assertIs(service.settings, settings)
+
     def test_private_write_replaces_token_atomically(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             token = Path(temporary) / "secrets" / "token.json"
@@ -51,6 +64,86 @@ class EmailServerTests(unittest.TestCase):
                 "email_send",
             },
         )
+
+    def test_container_reuses_application_service_and_account_client(self) -> None:
+        account = GmailAccountSettings(
+            account_id="personal",
+            label="Personal",
+            address="me@example.com",
+            credentials_file=Path("credentials"),
+            token_file=Path("token"),
+        )
+        settings = EmailSettings(accounts=(account,), default_account_id="personal")
+        factory = MagicMock()
+        factory.create.return_value = MagicMock(search=MagicMock(return_value=[]))
+        container = EmailContainer(settings=settings, client_factory=factory)
+
+        self.assertIs(container.service, container.service)
+        container.service.search("first")
+        container.service.search("second")
+
+        factory.create.assert_called_once_with(account)
+
+    def test_send_and_reply_require_policy_and_explicit_confirmation(self) -> None:
+        blocked = GmailAccountSettings(
+            account_id="blocked",
+            label="Blocked",
+            address="blocked@example.com",
+            credentials_file=Path("credentials"),
+            token_file=Path("blocked-token"),
+        )
+        enabled = GmailAccountSettings(
+            account_id="enabled",
+            label="Enabled",
+            address="enabled@example.com",
+            credentials_file=Path("credentials"),
+            token_file=Path("enabled-token"),
+            allow_send=True,
+        )
+        settings = EmailSettings(accounts=(blocked, enabled), default_account_id="blocked")
+        blocked_client = MagicMock()
+        enabled_client = MagicMock()
+        service = EmailService(
+            settings,
+            clients={"blocked": blocked_client, "enabled": enabled_client},
+        )
+
+        self.assertEqual(
+            service.send("to@example.com", "Subject", "Body", user_confirmed=True)["status"],
+            "disabled",
+        )
+        self.assertEqual(
+            service.reply("message-1", "Body", user_confirmed=True)["status"],
+            "disabled",
+        )
+        self.assertEqual(
+            service.send(
+                "to@example.com",
+                "Subject",
+                "Body",
+                account_id="enabled",
+            )["status"],
+            "confirmation_required",
+        )
+        self.assertEqual(
+            service.reply("message-1", "Body", account_id="enabled")["status"],
+            "confirmation_required",
+        )
+        blocked_client.send.assert_not_called()
+        blocked_client.reply.assert_not_called()
+        enabled_client.send.assert_not_called()
+        enabled_client.reply.assert_not_called()
+
+        service.send(
+            "to@example.com",
+            "Subject",
+            "Body",
+            account_id="enabled",
+            user_confirmed=True,
+        )
+        service.reply("message-1", "Body", account_id="enabled", user_confirmed=True)
+        enabled_client.send.assert_called_once_with("to@example.com", "Subject", "Body", None)
+        enabled_client.reply.assert_called_once_with("message-1", "Body")
 
     def test_reply_stays_in_thread_and_sets_email_headers(self) -> None:
         service = MagicMock()

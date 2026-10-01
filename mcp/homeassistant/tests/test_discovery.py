@@ -141,6 +141,15 @@ class DiscoveryTests(unittest.TestCase):
         self.assertEqual(result["address_details"], {"city": "Moscow"})
         self.assertIn("openstreetmap.org", result["map_url"])
 
+    def test_legacy_snapshot_returns_dictionary_records(self):
+        snapshot = self.service.snapshot()
+
+        self.assertIsInstance(snapshot, dict)
+        self.assertEqual(snapshot["records"][0]["entity_id"], "device_tracker.ivan_phone")
+        self.assertIsInstance(snapshot["records"][0]["aliases"], list)
+        self.assertIn("devices", snapshot)
+        self.assertIn("areas", snapshot)
+
     def test_finds_battery_sensor_through_device_relationship(self):
         result = self.service.find_entities("какой заряд телефона Ивана")
 

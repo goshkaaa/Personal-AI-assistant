@@ -22,6 +22,24 @@ mcp/calendar/
 Файлы в `providers/` не содержат секретов. Каждый `account.example.json` — это
 один объект для массива `accounts` в приватном конфиге.
 
+### Архитектура кода
+
+```text
+presentation/    MCP tools, error mapping, interactive confirmation
+       ↓
+application/     queries, proposal preparation, confirmed commits
+       ↓
+domain/          provider/storage/confirmation ports
+       ↑
+infrastructure/  Google/CalDAV factories and SQLite proposal storage
+```
+
+`composition.py` собирает один граф зависимостей на MCP-процесс. Настройки,
+account router, provider clients и proposal store переиспользуются между
+вызовами tools. `server.py` отвечает только за создание MCP-сервера и не содержит
+бизнес-логики. Архитектурные тесты не позволяют application-коду зависеть от
+MCP или infrastructure, а presentation-слою — самостоятельно собирать адаптеры.
+
 ## Быстрый старт
 
 ### 1. Установите модуль

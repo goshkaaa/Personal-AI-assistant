@@ -6,10 +6,15 @@ import re
 import sys
 import tempfile
 from contextlib import suppress
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal
 
+from .domain.models import (
+    EmailAccountSettings,
+    GmailAccountSettings,
+    ImapSmtpAccountSettings,
+)
 from .providers.presets import IMAP_SMTP_PRESETS
 
 BASE_DIR = Path(sys.prefix).resolve().parent
@@ -77,40 +82,6 @@ def write_private(path: Path, content: str) -> None:
     finally:
         if temporary_name:
             Path(temporary_name).unlink(missing_ok=True)
-
-
-@dataclass(frozen=True)
-class GmailAccountSettings:
-    account_id: str
-    label: str
-    address: str
-    credentials_file: Path
-    token_file: Path
-    allow_send: bool = False
-    provider: Literal["gmail"] = field(default="gmail", init=False)
-
-
-@dataclass(frozen=True)
-class ImapSmtpAccountSettings:
-    account_id: str
-    label: str
-    address: str
-    username: str
-    password_file: Path
-    imap_host: str
-    smtp_host: str
-    provider: Literal["imap_smtp", "yandex", "mailru", "icloud"] = "imap_smtp"
-    imap_port: int = 993
-    smtp_port: int = 465
-    imap_security: Literal["ssl", "starttls"] = "ssl"
-    smtp_security: Literal["ssl", "starttls"] = "ssl"
-    inbox_mailbox: str = "INBOX"
-    drafts_mailbox: str = "Drafts"
-    sent_mailbox: str | None = None
-    allow_send: bool = False
-
-
-EmailAccountSettings: TypeAlias = GmailAccountSettings | ImapSmtpAccountSettings
 
 
 @dataclass(frozen=True)

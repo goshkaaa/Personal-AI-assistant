@@ -8,19 +8,30 @@ Gmail API. Yandex, Mail.ru, iCloud и другие совместимые сер
 
 ```text
 mcp/email/
-├── providers/                  # готовые примеры настроек
+├── providers/                  # безопасные примеры настроек
 │   ├── gmail/
 │   ├── yandex/
 │   ├── mailru/
 │   ├── icloud/
 │   └── custom/               # любой другой IMAP/SMTP-сервер
-├── src/email_mcp/providers/   # адаптеры Gmail API и IMAP/SMTP
+├── src/email_mcp/
+│   ├── domain/                # модели аккаунтов и порты
+│   ├── application/           # маршрутизация и политика отправки
+│   ├── infrastructure/        # фабрика клиентов провайдеров
+│   ├── providers/             # адаптеры Gmail API и IMAP/SMTP
+│   ├── presentation/          # регистрация MCP tools
+│   └── composition.py         # сборка зависимостей на процесс
 ├── accounts.example.json      # полный мультиаккаунтный пример
 └── .env.example
 ```
 
 Папки в `providers/` не содержат пароли. В каждой лежит безопасный JSON-пример,
 который можно добавить в массив `accounts`.
+
+`composition.py` создаёт один application service на процесс; клиенты выбранных
+почтовых ящиков создаются лениво и переиспользуются между MCP-вызовами. Сервис
+применяет `allow_send` и требует `user_confirmed` для отправки и ответа, поэтому
+write-политика действует не только на уровне MCP tools.
 
 ## Быстрый старт
 
