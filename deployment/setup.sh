@@ -30,8 +30,13 @@ uv pip install --python "$ROOT_DIR/.venv/bin/python" \
 
 for service in "${SERVICES[@]}"; do
   service_dir="$ROOT_DIR/mcp/$service"
+  package_name="$service-mcp"
+  if [[ "$service" == "telegram" ]]; then
+    package_name="telegram-userbot-mcp"
+  fi
   printf '==> Installing %s MCP\n' "$service"
-  uv sync --project "$service_dir" --locked --extra dev --no-editable
+  uv sync --project "$service_dir" --locked --extra dev --no-editable \
+    --reinstall-package "$package_name"
 
   if [[ -f "$service_dir/.env.example" && ! -e "$service_dir/.env" ]]; then
     cp "$service_dir/.env.example" "$service_dir/.env"

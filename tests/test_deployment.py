@@ -5,7 +5,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from deployment import preflight
 from deployment.install_user_services import unit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -70,6 +72,19 @@ class DeploymentIntegrationTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("No files were published or deployed", result.stdout)
+
+    def test_source_preflight_accepts_an_uninitialized_hermes_submodule(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(preflight, "HERMES_DIR", Path(tmp)):
+                errors, warnings = preflight.collect_errors(
+                    allow_dirty=True,
+                    source_only=True,
+                )
+
+        self.assertNotIn("Hermes submodule is not initialized", errors)
+        self.assertTrue(
+            any("Hermes submodule is not initialized" in warning for warning in warnings)
+        )
 
 
 if __name__ == "__main__":

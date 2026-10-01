@@ -11,11 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 EXPECTED_TOOLS = {
     "calendar": {
+        "calendar_commit_delete_event",
         "calendar_commit_event",
         "calendar_find_free_slots",
         "calendar_list_accounts",
         "calendar_list_calendars",
         "calendar_list_events",
+        "calendar_prepare_delete_event",
         "calendar_prepare_event",
         "calendar_status",
     },

@@ -27,7 +27,12 @@ jobs:
       - name: Install MCP modules
         run: |
           for service in calendar email homeassistant obsidian telegram; do
-            uv sync --project "mcp/$service" --locked --extra dev --no-editable
+            package_name="$service-mcp"
+            if [[ "$service" == "telegram" ]]; then
+              package_name="telegram-userbot-mcp"
+            fi
+            uv sync --project "mcp/$service" --locked --extra dev --no-editable \
+              --reinstall-package "$package_name"
           done
 
       - name: Check

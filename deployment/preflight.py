@@ -68,11 +68,23 @@ def collect_errors(
         errors.append("Hermes is not installed; run make setup")
 
     expected_revision = gitlink_revision()
-    actual_revision = run("git", "rev-parse", "HEAD", cwd=HERMES_DIR)
-    if not expected_revision or actual_revision.returncode != 0:
-        errors.append("Hermes submodule is not initialized")
-    elif actual_revision.stdout.strip() != expected_revision:
-        errors.append("Hermes submodule revision does not match the repository gitlink")
+    submodule_metadata = HERMES_DIR / ".git"
+    if not expected_revision:
+        errors.append("Hermes gitlink is missing from the repository")
+    elif not submodule_metadata.exists():
+        message = "Hermes submodule is not initialized"
+        if source_only:
+            warnings.append(message + "; skipped for source-only validation")
+        else:
+            errors.append(message)
+    else:
+        actual_revision = run("git", "rev-parse", "HEAD", cwd=HERMES_DIR)
+        if actual_revision.returncode != 0:
+            errors.append("could not inspect the Hermes submodule revision")
+        elif actual_revision.stdout.strip() != expected_revision:
+            errors.append(
+                "Hermes submodule revision does not match the repository gitlink"
+            )
 
     for service, entrypoint in SERVICES.items():
         directory = ROOT / "mcp" / service
