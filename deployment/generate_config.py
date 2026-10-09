@@ -79,6 +79,14 @@ mcp_servers:
     enabled: true
     trust: untrusted
     connect_timeout: 30
+  yookassa:
+    url: "https://mcp.yookassa.ru"
+    headers:
+      Authorization: "Bearer ${{YOOKASSA_MCP_TOKEN}}"
+    # Set YOOKASSA_MCP_TOKEN in the intended Hermes profile's .env, then enable.
+    enabled: false
+    trust: untrusted
+    connect_timeout: 30
 """
 
 

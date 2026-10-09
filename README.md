@@ -4,7 +4,7 @@
 
 Персональный ассистент, который связывает [Hermes Agent](https://github.com/NousResearch/hermes-agent) с вашими повседневными инструментами: перепиской, календарём, умным домом и заметками. Сервисы запускаются отдельно, поэтому можно подключать только нужные интеграции и постепенно расширять систему.
 
-> Это self-hosted проект, а не обещание «всё остаётся на устройстве»: MCP-сервисы обращаются к своим провайдерам, а VkusVill подключается как удалённый MCP. Ниже описано, какие данные куда уходят и какие операции могут менять состояние.
+> Это self-hosted проект, а не обещание «всё остаётся на устройстве»: MCP-сервисы обращаются к своим провайдерам, а ВкусВилл и ЮKassa подключаются как удалённые MCP. Ниже описано, какие данные куда уходят и какие операции могут менять состояние.
 
 ## Содержание
 
@@ -27,12 +27,13 @@
 | [Home Assistant](mcp/homeassistant/README.md) | Искать entities по имени и комнате, читать состояния, устройства, историю и местоположение | Управление по умолчанию выключено; включается настройкой и ограничено разрешёнными доменами. Для write-tools нет отдельного внутреннего подтверждения каждого действия. |
 | [Obsidian](mcp/obsidian/README.md) | Искать, читать, создавать и дополнять Markdown-заметки в одном vault | Запись ограничена каталогом vault. MCP также умеет передать заметку в Telegram. |
 | [ВкусВилл](mcp/vkusvill/README.md) | Искать товары и рецепты, формировать корзину | Это удалённый MCP: запросы уходят внешнему сервису. В Hermes он помечен как `untrusted`; оформление и оплата остаются за пользователем. |
+| [ЮKassa](mcp/yookassa/README.md) | Создавать платежи и счета, проверять платежи, счета и возвраты | Удалённый MCP с отдельным токеном магазина и `trust: untrusted`. Включается после настройки токена; оплата проходит на странице ЮKassa. Создание возвратов и передача фискальных чеков через MCP недоступны. |
 
 Для повторяемых сценариев есть [обезличенные Hermes skills](skills/README.md). Skills не заменяют настройки MCP и не содержат ваши учётные данные.
 
 ## Архитектура
 
-Hermes ведёт диалог и вызывает MCP-инструменты. Пять локальных MCP-сервисов устанавливаются независимо; VkusVill подключается по HTTPS. Провайдеры (Telegram, Google, CalDAV, Home Assistant, Obsidian vault) остаются источниками данных и действий.
+Hermes ведёт диалог и вызывает MCP-инструменты. Пять локальных MCP-сервисов устанавливаются независимо; ВкусВилл и ЮKassa подключаются по HTTPS. Провайдеры (Telegram, Google, CalDAV, Home Assistant, Obsidian vault) остаются источниками данных и действий.
 
 ```mermaid
 flowchart LR
@@ -44,6 +45,7 @@ flowchart LR
     Local --> HA[Home Assistant]
     Local --> Vault[Obsidian vault]
     Hermes -->|HTTPS| VkusVill[Удалённый MCP ВкусВилл]
+    Hermes -->|HTTPS| YooKassa[Удалённый MCP ЮKassa]
     Telegram -. optional listener / worker .-> Queue[(Локальная очередь задач)]
 ```
 
@@ -83,7 +85,7 @@ mcp/calendar/.venv/bin/calendar-auth --account <account-id>
 make config
 ```
 
-Скопируйте **только настроенные** entries из `.local/hermes-mcp.yaml` в существующий `mcp_servers` файла `~/.hermes/config.yaml`. Не создавайте второй ключ `mcp_servers`. Генератор включает все шесть интеграций, в том числе ещё не настроенные локальные MCP и удалённый ВкусВилл, поэтому отключите ненужные записи. Файл содержит абсолютные локальные пути, имеет приватные права и не должен попадать в Git.
+Скопируйте **только настроенные** entries из `.local/hermes-mcp.yaml` в существующий `mcp_servers` файла `~/.hermes/config.yaml`. Не создавайте второй ключ `mcp_servers`. Генератор включает пять локальных MCP и удалённый ВкусВилл, поэтому отключите ненужные записи. ЮKassa добавляется выключенной: сохраните `YOOKASSA_MCP_TOKEN` в приватном `.env` нужного профиля Hermes и включите `enabled: true`, как описано в [инструкции](mcp/yookassa/README.md). Файл содержит абсолютные локальные пути, имеет приватные права и не должен попадать в Git.
 
 ### 3. Проверьте конфигурацию
 
@@ -105,6 +107,7 @@ make check
 | Telegram task replies | После прикрепления задачи listener передаёт входящие события worker-у, который может отвечать без подтверждения каждого сообщения. |
 | Obsidian writes | Локальные инструменты могут записывать в настроенный vault; внешнего approval prompt при `trust: full` нет. |
 | ВкусВилл | Удалённый endpoint и `trust: untrusted`; проверяйте отправляемые запросы и подтверждайте покупку самостоятельно. |
+| ЮKassa | Удалённый endpoint, токен магазина и `trust: untrusted`; создание платежей и счетов проходит через approval policy Hermes, оплата — на странице ЮKassa. |
 
 Не коммитьте `.env`, OAuth/API-токены, app passwords, Telegram sessions, SQLite, логи, backups, приватные Hermes config/SOUL/memory, сгенерированный `.local/` и реальные координаты. Runtime-данные по умолчанию лежат в `~/.local/share/personal-ai-assistant/`, credentials — в `~/.config/personal-ai-assistant/secrets/`.
 
@@ -166,7 +169,7 @@ hermes/        Hermes Agent, закреплённый Git submodule
 ```
 
 Архитектура, setup и ограничения конкретных интеграций:
-[Telegram](mcp/telegram/README.md) · [Email](mcp/email/README.md) · [Calendar](mcp/calendar/README.md) · [Home Assistant](mcp/homeassistant/README.md) · [Obsidian](mcp/obsidian/README.md) · [ВкусВилл](mcp/vkusvill/README.md).
+[Telegram](mcp/telegram/README.md) · [Email](mcp/email/README.md) · [Calendar](mcp/calendar/README.md) · [Home Assistant](mcp/homeassistant/README.md) · [Obsidian](mcp/obsidian/README.md) · [ВкусВилл](mcp/vkusvill/README.md) · [ЮKassa](mcp/yookassa/README.md).
 
 ## Лицензия
 

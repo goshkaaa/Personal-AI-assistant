@@ -107,6 +107,15 @@ mcp/calendar/.venv/bin/calendar-store-password --account <caldav-account-id>
 geocoder оставьте выключенным, если нет доверенного endpoint и явного согласия
 на передачу координат.
 
+### ЮKassa
+
+Удалённый MCP подключается напрямую к `https://mcp.yookassa.ru`.
+Сохраните `YOOKASSA_MCP_TOKEN=<токен>` в `.env` нужного профиля Hermes с правами
+`0600`. В конфигурации используется только `Bearer ${YOOKASSA_MCP_TOKEN}`.
+После настройки секрета включите entry `yookassa` через `enabled: true`.
+Генератор оставляет эту интеграцию выключенной до настройки токена.
+Инструкции и ограничения: [ЮKassa MCP](../mcp/yookassa/README.md).
+
 ## 5. Подключение MCP
 
 ```bash

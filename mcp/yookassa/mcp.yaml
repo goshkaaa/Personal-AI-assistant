@@ -1,0 +1,8 @@
+name: yookassa
+type: remote
+transport: streamable-http
+url: https://mcp.yookassa.ru
+headers:
+  Authorization: "Bearer ${YOOKASSA_MCP_TOKEN}"
+enabled: false
+trust: untrusted

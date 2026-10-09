@@ -4,6 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### YooKassa
+
+- Added the official remote YooKassa MCP over Streamable HTTP for payments,
+  invoices, payment status, and refund lookup.
+- Added a deployment config entry using `YOOKASSA_MCP_TOKEN` at runtime and
+  `trust: untrusted`; it remains disabled until the shop token is configured.
+- Documented setup and supported tools, and added a regression check that the
+  config generator never writes the token value into YAML.
+
 ### Home Assistant
 
 - Refactored the MCP into domain, application, infrastructure, and presentation

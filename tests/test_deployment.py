@@ -24,6 +24,7 @@ class DeploymentIntegrationTests(unittest.TestCase):
         environment = os.environ.copy()
         environment["MCP_CONFIG_OUTPUT"] = str(self.output)
         environment["TG_API_HASH"] = self.private_marker
+        environment["YOOKASSA_MCP_TOKEN"] = self.private_marker
         subprocess.run(
             [sys.executable, str(GENERATOR)],
             cwd=ROOT,
@@ -47,6 +48,14 @@ class DeploymentIntegrationTests(unittest.TestCase):
 
         self.assertEqual(self.config.count("MCP_ENV_FILE:"), len(LOCAL_SERVICES))
         self.assertIn("https://mcp.vkusvill.ru/mcp", self.config)
+
+    def test_yookassa_uses_a_runtime_secret_and_requires_setup(self) -> None:
+        yookassa = self.config.split("  yookassa:\n", 1)[1]
+        self.assertIn('url: "https://mcp.yookassa.ru"', yookassa)
+        self.assertIn('Authorization: "Bearer ${YOOKASSA_MCP_TOKEN}"', yookassa)
+        self.assertIn("enabled: false", yookassa)
+        self.assertIn("trust: untrusted", yookassa)
+        self.assertNotIn("command:", yookassa)
 
     def test_generated_config_is_private_and_contains_no_env_values(self) -> None:
         self.assertNotIn(self.private_marker, self.config)

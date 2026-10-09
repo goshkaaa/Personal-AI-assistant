@@ -5,7 +5,7 @@ tests/         process-level integration tests
 
 A personal assistant that connects [Hermes Agent](https://github.com/NousResearch/hermes-agent) to messaging, email, calendars, Home Assistant, and notes. Integrations run as separate services, so you can enable only the tools you intend to use and expand the setup over time.
 
-> Self-hosted does not mean every request stays on your machine: local MCPs contact their providers, and VkusVill is a remote MCP. This guide calls out where data goes and which tools can change state.
+> Self-hosted does not mean every request stays on your machine: local MCPs contact their providers, and VkusVill and YooKassa are remote MCPs. This guide calls out where data goes and which tools can change state.
 
 ## Contents
 
@@ -28,12 +28,13 @@ A personal assistant that connects [Hermes Agent](https://github.com/NousResearc
 | [Home Assistant](mcp/homeassistant/README.md) | Find entities by name or room, read states, devices, history, and location | Control is disabled by default, enabled through configuration, and restricted to allowed domains. Write tools have no separate built-in per-action human confirmation. |
 | [Obsidian](mcp/obsidian/README.md) | Search, read, create, and append Markdown notes in one vault | Writes are confined to the configured vault. The MCP can also send a note through Telegram. |
 | [VkusVill](mcp/vkusvill/README.md) | Search products and recipes, build a cart | Remote MCP: requests go to an external service. Hermes marks it `untrusted`; the user remains responsible for checkout and payment. |
+| [YooKassa](mcp/yookassa/README.md) | Create payments and invoices, inspect payments, invoices, and refunds | Remote MCP with a separate shop token and `trust: untrusted`. Enable after setting the token; payment takes place on YooKassa's checkout page. Creating refunds and sending fiscal receipt data are unsupported. |
 
 Reusable, profile-independent workflows are in [Hermes skills](skills/README.md). Skills do not replace MCP setup and do not contain your credentials.
 
 ## Architecture
 
-Hermes handles the conversation and invokes MCP tools. Five local MCP services are installed independently; VkusVill connects over HTTPS. Providers (Telegram, Google, CalDAV, Home Assistant, and the Obsidian vault) remain the source of data and actions.
+Hermes handles the conversation and invokes MCP tools. Five local MCP services are installed independently; VkusVill and YooKassa connect over HTTPS. Providers (Telegram, Google, CalDAV, Home Assistant, and the Obsidian vault) remain the source of data and actions.
 
 ```mermaid
 flowchart LR
@@ -45,6 +46,7 @@ flowchart LR
     Local --> HA[Home Assistant]
     Local --> Vault[Obsidian vault]
     Hermes -->|HTTPS| VkusVill[Remote VkusVill MCP]
+    Hermes -->|HTTPS| YooKassa[Remote YooKassa MCP]
     Telegram -. optional listener / worker .-> Queue[(Local task queue)]
 ```
 
@@ -84,7 +86,7 @@ IMAP/SMTP and CalDAV have separate password-storage commands. See each integrati
 make config
 ```
 
-Copy **only configured** entries from `.local/hermes-mcp.yaml` into the existing `mcp_servers` section of `~/.hermes/config.yaml`; do not add a second `mcp_servers` key. The generator enables all six entries, including unconfigured local servers and remote VkusVill, so disable anything you have not set up. The generated file contains absolute local paths, is private, and must not be committed.
+Copy **only configured** entries from `.local/hermes-mcp.yaml` into the existing `mcp_servers` section of `~/.hermes/config.yaml`; do not add a second `mcp_servers` key. The generator enables the five local servers and remote VkusVill, so disable anything you have not set up. YooKassa is included disabled: save `YOOKASSA_MCP_TOKEN` in the intended Hermes profile's private `.env`, then set `enabled: true` as described in its [guide](mcp/yookassa/README.md). The generated file contains absolute local paths, is private, and must not be committed.
 
 ### 3. Validate the setup
 
@@ -106,6 +108,7 @@ Generated local MCP entries use `trust: full`. Hermes's standard approval prompt
 | Telegram task replies | Once a task is attached, the listener forwards incoming events to a worker that can reply without approval for every message. |
 | Obsidian writes | Local tools can write to the configured vault; there is no external approval prompt when configured as `trust: full`. |
 | VkusVill | Remote endpoint and `trust: untrusted`; review requests and confirm any purchase yourself. |
+| YooKassa | Remote endpoint, shop token, and `trust: untrusted`; Hermes's approval policy gates payment and invoice creation, and payment takes place on YooKassa's checkout page. |
 
 Never commit `.env`, API/OAuth tokens, app passwords, Telegram sessions, SQLite files, logs, backups, private Hermes config/SOUL/memory, generated `.local/`, or real coordinates. Runtime data defaults to `~/.local/share/personal-ai-assistant/`; credentials default to `~/.config/personal-ai-assistant/secrets/`.
 
@@ -166,7 +169,7 @@ scripts/       shared quality gate and secret scanning
 hermes/        pinned Hermes Agent Git submodule
 ```
 
-Integration guides: [Telegram](mcp/telegram/README.md) · [Email](mcp/email/README.md) · [Calendar](mcp/calendar/README.md) · [Home Assistant](mcp/homeassistant/README.md) · [Obsidian](mcp/obsidian/README.md) · [VkusVill](mcp/vkusvill/README.md).
+Integration guides: [Telegram](mcp/telegram/README.md) · [Email](mcp/email/README.md) · [Calendar](mcp/calendar/README.md) · [Home Assistant](mcp/homeassistant/README.md) · [Obsidian](mcp/obsidian/README.md) · [VkusVill](mcp/vkusvill/README.md) · [YooKassa](mcp/yookassa/README.md).
 
 ## License
 
