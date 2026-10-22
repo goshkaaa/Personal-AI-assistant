@@ -21,7 +21,7 @@
 
 - обычный непривилегированный user;
 - Git;
-- Python 3.11–3.13;
+- Python 3.11–3.13 для MCP; Python 3.14 для Hermes v0.22.4 устанавливается автоматически через `uv`, зависимостями Hermes управляет PM;
 - [`uv`](https://docs.astral.sh/uv/);
 - Linux с systemd user services для постоянного gateway и workers или другой supervisor.
 

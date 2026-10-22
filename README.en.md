@@ -54,7 +54,7 @@ Each local MCP has its own `pyproject.toml`, `uv.lock`, `.venv`, and `.env`. Her
 
 ## Quick start
 
-Supported platforms: Linux and macOS. Requirements: Git, Python **3.11–3.13**, and [`uv`](https://docs.astral.sh/uv/). Install as a regular user, not `root`.
+Supported platforms: Linux and macOS. Requirements: Git, Python **3.11–3.13** for MCP services, and [`uv`](https://docs.astral.sh/uv/). For Hermes **v0.22.4**, setup separately provisions Python **3.14** and dependencies through Hermes PM. Install as a regular user, not `root`.
 
 ```bash
 git clone --recurse-submodules https://github.com/goshkaaa/Personal-AI-assistant.git

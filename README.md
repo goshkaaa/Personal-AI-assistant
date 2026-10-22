@@ -53,7 +53,7 @@ flowchart LR
 
 ## Быстрый старт
 
-Поддерживаются Linux и macOS. Нужны Git, Python **3.11–3.13** и [`uv`](https://docs.astral.sh/uv/). Установку выполняйте обычным пользователем, не от `root`.
+Поддерживаются Linux и macOS. Нужны Git, Python **3.11–3.13** для MCP и [`uv`](https://docs.astral.sh/uv/). Для Hermes **v0.22.4** установщик отдельно подготавливает Python **3.14** и зависимости через Hermes PM. Установку выполняйте обычным пользователем, не от `root`.
 
 ```bash
 git clone --recurse-submodules https://github.com/goshkaaa/Personal-AI-assistant.git

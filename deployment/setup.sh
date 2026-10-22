@@ -22,11 +22,17 @@ printf '==> Initializing Hermes Agent\n'
 git -C "$ROOT_DIR" submodule update --init --recursive
 
 printf '==> Installing Hermes Agent\n'
-if [[ ! -x "$ROOT_DIR/.venv/bin/python" ]]; then
-  uv venv "$ROOT_DIR/.venv" --python "$PYTHON_BIN"
+# Hermes PM owns its Python 3.14 runtime; MCP services keep their own Python.
+if ! HERMES_PYTHON="$(uv python find --system --no-project 3.14 2>/dev/null)"; then
+  uv python install 3.14
+  HERMES_PYTHON="$(uv python find --managed-python 3.14)"
 fi
-uv pip install --python "$ROOT_DIR/.venv/bin/python" \
-  -e "$ROOT_DIR/hermes/hermes-agent[all]"
+(
+  cd "$ROOT_DIR/hermes/hermes-agent"
+  "$HERMES_PYTHON" -m pm.cli install
+  # Keep the project's existing command path, backed by the managed runtime.
+  "$HERMES_PYTHON" -I -X utf8 hermes_cli/_launchers.py "$ROOT_DIR/.venv/bin"
+)
 
 for service in "${SERVICES[@]}"; do
   service_dir="$ROOT_DIR/mcp/$service"
